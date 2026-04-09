@@ -4,8 +4,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ACCENT, ACCENT_FAINT } from "../../utils/colors";
 
-const GOLD = "#FFD100";
 
 type Gender = "man" | "woman" | "nonbinary";
 type ShowMe = "men" | "women" | "everyone";
@@ -29,7 +29,7 @@ export default function GenderPrefsScreen() {
 
   const GenderButton = ({ value, label, icon }: { value: Gender; label: string; icon: string }) => (
     <Pressable style={[styles.optionButton, gender === value && styles.optionSelected]} onPress={() => setGender(value)}>
-      <FontAwesome name={icon as any} size={22} color={gender === value ? GOLD : "rgba(255,255,255,0.4)"} />
+      <FontAwesome name={icon as any} size={22} color={gender === value ? ACCENT : "rgba(255,255,255,0.4)"} />
       <Text style={[styles.optionText, gender === value && styles.optionTextSelected]}>{label}</Text>
       {gender === value && <View style={styles.checkDot}><FontAwesome name="check" size={12} color="#1E293B" /></View>}
     </Pressable>
@@ -82,17 +82,17 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingBottom: 10, flexDirection: "row", alignItems: "center", gap: 16 },
   backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.08)", justifyContent: "center", alignItems: "center" },
   progressBar: { flex: 1, height: 4, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 2 },
-  progressFill: { height: "100%", backgroundColor: GOLD, borderRadius: 2 },
+  progressFill: { height: "100%", backgroundColor: ACCENT, borderRadius: 2 },
   content: { flex: 1, paddingHorizontal: 24, paddingTop: 30 },
   title: { fontSize: 24, fontWeight: "800", color: "#fff", marginBottom: 16 },
   optionsGroup: { gap: 10 },
   optionButton: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 14, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.08)", paddingVertical: 18, paddingHorizontal: 20, gap: 14 },
-  optionSelected: { borderColor: GOLD, backgroundColor: "rgba(255, 209, 0, 0.08)" },
+  optionSelected: { borderColor: ACCENT, backgroundColor: ACCENT_FAINT },
   optionText: { flex: 1, fontSize: 18, fontWeight: "600", color: "rgba(255,255,255,0.5)" },
   optionTextSelected: { color: "#fff" },
-  checkDot: { width: 28, height: 28, borderRadius: 14, backgroundColor: GOLD, justifyContent: "center", alignItems: "center" },
+  checkDot: { width: 28, height: 28, borderRadius: 14, backgroundColor: ACCENT, justifyContent: "center", alignItems: "center" },
   footer: { paddingHorizontal: 24 },
-  continueButton: { width: "100%", flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: GOLD, borderRadius: 16, paddingVertical: 18, gap: 10, ...Platform.select({ ios: { shadowColor: GOLD, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 12 }, android: { elevation: 8 } }) },
+  continueButton: { width: "100%", flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: ACCENT, borderRadius: 16, paddingVertical: 18, gap: 10, ...Platform.select({ ios: { shadowColor: ACCENT, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 12 }, android: { elevation: 8 } }) },
   disabled: { opacity: 0.4 },
   continueText: { fontSize: 18, fontWeight: "700", color: "#1E293B" },
 });

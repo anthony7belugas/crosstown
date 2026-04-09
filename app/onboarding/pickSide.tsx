@@ -13,10 +13,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ACCENT, USC_RED, UCLA_BLUE, ACCENT_MEDIUM } from "../../utils/colors";
 
-const CARDINAL = "#9B1B30";
-const BRUIN_BLUE = "#2774AE";
-const GOLD = "#FFD100";
 
 export default function PickSideScreen() {
   const router = useRouter();
@@ -101,20 +99,20 @@ export default function PickSideScreen() {
           <Pressable
             style={[
               styles.sideCard,
-              { borderColor: CARDINAL },
+              { borderColor: USC_RED },
               selected === "usc" && styles.sideCardSelected,
-              selected === "usc" && { borderColor: CARDINAL, backgroundColor: "rgba(155, 27, 48, 0.15)" },
+              selected === "usc" && { borderColor: USC_RED, backgroundColor: "rgba(155, 27, 48, 0.15)" },
             ]}
             onPress={() => setSelected("usc")}
           >
-            <View style={[styles.colorStripe, { backgroundColor: CARDINAL }]} />
+            <View style={[styles.colorStripe, { backgroundColor: USC_RED }]} />
             <View style={styles.cardContent}>
               <Text style={styles.schoolName}>USC</Text>
               <Text style={styles.schoolMascot}>Trojans</Text>
               <Text style={styles.schoolEmail}>@usc.edu</Text>
             </View>
             {selected === "usc" && (
-              <View style={[styles.checkCircle, { backgroundColor: CARDINAL }]}>
+              <View style={[styles.checkCircle, { backgroundColor: USC_RED }]}>
                 <FontAwesome name="check" size={16} color="#fff" />
               </View>
             )}
@@ -131,20 +129,20 @@ export default function PickSideScreen() {
           <Pressable
             style={[
               styles.sideCard,
-              { borderColor: BRUIN_BLUE },
+              { borderColor: UCLA_BLUE },
               selected === "ucla" && styles.sideCardSelected,
-              selected === "ucla" && { borderColor: BRUIN_BLUE, backgroundColor: "rgba(39, 116, 174, 0.15)" },
+              selected === "ucla" && { borderColor: UCLA_BLUE, backgroundColor: "rgba(39, 116, 174, 0.15)" },
             ]}
             onPress={() => setSelected("ucla")}
           >
-            <View style={[styles.colorStripe, { backgroundColor: BRUIN_BLUE }]} />
+            <View style={[styles.colorStripe, { backgroundColor: UCLA_BLUE }]} />
             <View style={styles.cardContent}>
               <Text style={styles.schoolName}>UCLA</Text>
               <Text style={styles.schoolMascot}>Bruins</Text>
               <Text style={styles.schoolEmail}>@ucla.edu</Text>
             </View>
             {selected === "ucla" && (
-              <View style={[styles.checkCircle, { backgroundColor: BRUIN_BLUE }]}>
+              <View style={[styles.checkCircle, { backgroundColor: UCLA_BLUE }]}>
                 <FontAwesome name="check" size={16} color="#fff" />
               </View>
             )}
@@ -301,12 +299,12 @@ const styles = StyleSheet.create({
   vsLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "rgba(255, 209, 0, 0.15)",
+    backgroundColor: ACCENT_MEDIUM,
   },
   vsSmall: {
     fontSize: 16,
     fontWeight: "800",
-    color: GOLD,
+    color: ACCENT,
     letterSpacing: 3,
   },
   footer: {
@@ -317,12 +315,12 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: GOLD,
+    backgroundColor: ACCENT,
     borderRadius: 16,
     paddingVertical: 18,
     ...Platform.select({
       ios: {
-        shadowColor: GOLD,
+        shadowColor: ACCENT,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.35,
         shadowRadius: 12,

@@ -13,10 +13,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebaseConfig";
 import { getUserProfile } from "../../utils/userProfileCache";
+import { ACCENT, USC_RED, UCLA_BLUE, ACCENT_SUBTLE } from "../../utils/colors";
 
-const GOLD = "#FFD100";
-const CARDINAL = "#9B1B30";
-const BRUIN_BLUE = "#2774AE";
 
 interface MatchItem {
   matchId: string;
@@ -135,7 +133,7 @@ export default function ChatScreen() {
           <Text style={styles.headerTitle}>Matches</Text>
         </View>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={GOLD} />
+          <ActivityIndicator size="large" color={ACCENT} />
         </View>
       </View>
     );
@@ -149,7 +147,7 @@ export default function ChatScreen() {
         </View>
         <View style={styles.centered}>
           <View style={styles.emptyIcon}>
-            <FontAwesome name="comment" size={40} color={GOLD} />
+            <FontAwesome name="comment" size={40} color={ACCENT} />
           </View>
           <Text style={styles.emptyTitle}>No Matches Yet</Text>
           <Text style={styles.emptySubtitle}>
@@ -190,7 +188,7 @@ export default function ChatScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={GOLD}
+            tintColor={ACCENT}
           />
         }
         ListHeaderComponent={
@@ -213,7 +211,7 @@ export default function ChatScreen() {
                         styles.matchCircleGlow,
                         {
                           borderColor:
-                            match.side === "usc" ? CARDINAL : BRUIN_BLUE,
+                            match.side === "usc" ? USC_RED : UCLA_BLUE,
                         },
                       ]}
                     >
@@ -274,7 +272,7 @@ export default function ChatScreen() {
                   styles.sideDot,
                   {
                     backgroundColor:
-                      item.side === "usc" ? CARDINAL : BRUIN_BLUE,
+                      item.side === "usc" ? USC_RED : UCLA_BLUE,
                   },
                 ]}
               />
@@ -323,8 +321,8 @@ const styles = StyleSheet.create({
   matchCount: {
     fontSize: 14,
     fontWeight: "700",
-    color: GOLD,
-    backgroundColor: "rgba(255,209,0,0.1)",
+    color: ACCENT,
+    backgroundColor: ACCENT_SUBTLE,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
@@ -339,7 +337,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "rgba(255,209,0,0.1)",
+    backgroundColor: ACCENT_SUBTLE,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,

@@ -2,15 +2,15 @@
 import { FontAwesome } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { Platform, StyleSheet } from "react-native";
+import { ACCENT } from "../../utils/colors";
 
-const GOLD = "#FFD100";
 
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: GOLD,
+        tabBarActiveTintColor: ACCENT,
         tabBarInactiveTintColor: "rgba(255,255,255,0.4)",
         tabBarStyle: {
           backgroundColor: "#0F172A",

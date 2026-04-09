@@ -13,8 +13,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db, storage } from "../../firebaseConfig";
+import { ACCENT, ACCENT_LIGHT } from "../../utils/colors";
 
-const GOLD = "#FFD100";
 
 const MAJORS = [
   "Accounting", "Aerospace Engineering", "Anthropology", "Architecture",
@@ -153,7 +153,7 @@ export default function EditProfileScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={GOLD} />
+          <ActivityIndicator size="large" color={ACCENT} />
         </View>
       </View>
     );
@@ -200,7 +200,7 @@ export default function EditProfileScreen() {
               ) : (
                 <View style={styles.addPhotoPlaceholder}>
                   {uploadingPhoto && i === photos.length ? (
-                    <ActivityIndicator size="small" color={GOLD} />
+                    <ActivityIndicator size="small" color={ACCENT} />
                   ) : (
                     <FontAwesome name="plus" size={20} color="rgba(255,255,255,0.2)" />
                   )}
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
   },
   cancelText: { fontSize: 16, color: "rgba(255,255,255,0.5)" },
   headerTitle: { fontSize: 18, fontWeight: "700", color: "#fff" },
-  saveText: { fontSize: 16, fontWeight: "700", color: GOLD },
+  saveText: { fontSize: 16, fontWeight: "700", color: ACCENT },
   scrollContent: { padding: 20, paddingBottom: 60 },
   sectionLabel: {
     fontSize: 13,
@@ -370,11 +370,11 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.06)",
   },
   chipSelected: {
-    backgroundColor: "rgba(255,209,0,0.12)",
-    borderColor: GOLD,
+    backgroundColor: ACCENT_LIGHT,
+    borderColor: ACCENT,
   },
   chipText: { fontSize: 14, color: "rgba(255,255,255,0.5)" },
-  chipTextSelected: { color: GOLD, fontWeight: "600" },
+  chipTextSelected: { color: ACCENT, fontWeight: "600" },
   yearRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   yearChip: {
     paddingHorizontal: 20,
@@ -385,9 +385,9 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.06)",
   },
   yearChipSelected: {
-    backgroundColor: "rgba(255,209,0,0.12)",
-    borderColor: GOLD,
+    backgroundColor: ACCENT_LIGHT,
+    borderColor: ACCENT,
   },
   yearText: { fontSize: 15, fontWeight: "600", color: "rgba(255,255,255,0.4)" },
-  yearTextSelected: { color: GOLD },
+  yearTextSelected: { color: ACCENT },
 });

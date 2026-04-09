@@ -9,8 +9,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { registerForPushNotifications } from "../utils/pushNotifications";
+import { ACCENT, ACCENT_FAINT, ACCENT_GLOW } from "../utils/colors";
 
-const GOLD = "#FFD100";
 
 export default function EnableNotificationsScreen() {
   const insets = useSafeAreaInsets();
@@ -63,7 +63,7 @@ export default function EnableNotificationsScreen() {
         <Animated.View
           style={[styles.iconCircle, { transform: [{ scale: bellScale }] }]}
         >
-          <FontAwesome name="bell" size={48} color={GOLD} />
+          <FontAwesome name="bell" size={48} color={ACCENT} />
         </Animated.View>
 
         <Text style={styles.title}>Don't Miss a Match</Text>
@@ -124,9 +124,9 @@ const styles = StyleSheet.create({
     width: 110,
     height: 110,
     borderRadius: 55,
-    backgroundColor: "rgba(255,209,0,0.08)",
+    backgroundColor: ACCENT_FAINT,
     borderWidth: 2,
-    borderColor: "rgba(255,209,0,0.2)",
+    borderColor: ACCENT_GLOW,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 32,
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: GOLD,
+    backgroundColor: ACCENT,
     borderRadius: 16,
     paddingVertical: 18,
     gap: 10,

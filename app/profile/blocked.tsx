@@ -11,10 +11,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebaseConfig";
 import { unblockUser } from "../../utils/blockUtils";
+import { ACCENT, USC_RED, UCLA_BLUE } from "../../utils/colors";
 
-const GOLD = "#FFD100";
-const CARDINAL = "#9B1B30";
-const BRUIN_BLUE = "#2774AE";
 
 interface BlockedUser {
   uid: string;
@@ -121,7 +119,7 @@ export default function BlockedUsersScreen() {
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={GOLD} />
+          <ActivityIndicator size="large" color={ACCENT} />
         </View>
       ) : blockedUsers.length === 0 ? (
         <View style={styles.centered}>
@@ -139,7 +137,7 @@ export default function BlockedUsersScreen() {
           keyExtractor={(item) => item.uid}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => {
-            const sideColor = item.side === "usc" ? CARDINAL : BRUIN_BLUE;
+            const sideColor = item.side === "usc" ? USC_RED : UCLA_BLUE;
             return (
               <View style={styles.userRow}>
                 <View style={styles.userLeft}>

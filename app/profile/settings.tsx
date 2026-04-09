@@ -12,8 +12,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebaseConfig";
+import { ACCENT, ACCENT_TRACK } from "../../utils/colors";
 
-const GOLD = "#FFD100";
 
 interface BlockedUser {
   uid: string;
@@ -129,40 +129,40 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <FontAwesome name="fire" size={16} color={GOLD} />
+              <FontAwesome name="fire" size={16} color={ACCENT} />
               <Text style={styles.settingText}>New matches</Text>
             </View>
             <Switch
               value={notifMatches}
               onValueChange={setNotifMatches}
-              trackColor={{ false: "#334155", true: "rgba(255,209,0,0.3)" }}
-              thumbColor={notifMatches ? GOLD : "#94A3B8"}
+              trackColor={{ false: "#334155", true: ACCENT_TRACK }}
+              thumbColor={notifMatches ? ACCENT : "#94A3B8"}
             />
           </View>
           <View style={styles.divider} />
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <FontAwesome name="comment" size={16} color={GOLD} />
+              <FontAwesome name="comment" size={16} color={ACCENT} />
               <Text style={styles.settingText}>Messages</Text>
             </View>
             <Switch
               value={notifMessages}
               onValueChange={setNotifMessages}
-              trackColor={{ false: "#334155", true: "rgba(255,209,0,0.3)" }}
-              thumbColor={notifMessages ? GOLD : "#94A3B8"}
+              trackColor={{ false: "#334155", true: ACCENT_TRACK }}
+              thumbColor={notifMessages ? ACCENT : "#94A3B8"}
             />
           </View>
           <View style={styles.divider} />
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <FontAwesome name="heart" size={16} color={GOLD} />
+              <FontAwesome name="heart" size={16} color={ACCENT} />
               <Text style={styles.settingText}>Someone liked you</Text>
             </View>
             <Switch
               value={notifLikes}
               onValueChange={setNotifLikes}
-              trackColor={{ false: "#334155", true: "rgba(255,209,0,0.3)" }}
-              thumbColor={notifLikes ? GOLD : "#94A3B8"}
+              trackColor={{ false: "#334155", true: ACCENT_TRACK }}
+              thumbColor={notifLikes ? ACCENT : "#94A3B8"}
             />
           </View>
         </View>

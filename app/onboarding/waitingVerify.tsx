@@ -7,8 +7,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { Alert, Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../../firebaseConfig";
+import { ACCENT } from "../../utils/colors";
 
-const GOLD = "#FFD100";
 
 export default function WaitingVerifyScreen() {
   const { side } = useLocalSearchParams<{ side: string }>();
@@ -67,7 +67,7 @@ export default function WaitingVerifyScreen() {
     <View style={[styles.container, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 32 }]}>
       <View style={styles.content}>
         <Animated.View style={[styles.spinnerContainer, { transform: [{ rotate: spin }] }]}>
-          <FontAwesome name="circle-o-notch" size={50} color={GOLD} />
+          <FontAwesome name="circle-o-notch" size={50} color={ACCENT} />
         </Animated.View>
         <Text style={styles.title}>Check Your Email</Text>
         <Text style={styles.subtitle}>
@@ -92,11 +92,11 @@ const styles = StyleSheet.create({
   spinnerContainer: { marginBottom: 32 },
   title: { fontSize: 28, fontWeight: "800", color: "#fff", marginBottom: 12 },
   subtitle: { fontSize: 16, color: "rgba(255,255,255,0.5)", textAlign: "center", lineHeight: 24 },
-  emailText: { color: GOLD, fontWeight: "600" },
+  emailText: { color: ACCENT, fontWeight: "600" },
   hint: { fontSize: 14, color: "rgba(255,255,255,0.3)", textAlign: "center", marginTop: 20, lineHeight: 20 },
   resendButton: { marginTop: 32, paddingVertical: 14, paddingHorizontal: 28, backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
   resendDisabled: { opacity: 0.4 },
-  resendText: { fontSize: 16, fontWeight: "600", color: GOLD },
+  resendText: { fontSize: 16, fontWeight: "600", color: ACCENT },
   cancelButton: { paddingVertical: 16 },
   cancelText: { fontSize: 15, color: "rgba(255,255,255,0.3)" },
 });

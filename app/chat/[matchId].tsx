@@ -19,10 +19,8 @@ import { ReportModal } from "../../components/ReportModal";
 import { auth, db } from "../../firebaseConfig";
 import { blockUser, reportUser, ReportReason } from "../../utils/blockUtils";
 import { containsBannedWords } from "../../utils/contentFilter";
+import { ACCENT, USC_RED, UCLA_BLUE } from "../../utils/colors";
 
-const GOLD = "#FFD100";
-const CARDINAL = "#9B1B30";
-const BRUIN_BLUE = "#2774AE";
 
 interface Message {
   id: string;
@@ -195,7 +193,7 @@ export default function ChatDetailScreen() {
   const isMyMessage = (msg: Message) =>
     msg.senderId === auth.currentUser?.uid;
 
-  const sideColor = otherUser?.side === "usc" ? CARDINAL : BRUIN_BLUE;
+  const sideColor = otherUser?.side === "usc" ? USC_RED : UCLA_BLUE;
 
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const mine = isMyMessage(item);
@@ -216,7 +214,7 @@ export default function ChatDetailScreen() {
             styles.messageBubble,
             mine ? styles.myBubble : styles.theirBubble,
             mine
-              ? { backgroundColor: GOLD }
+              ? { backgroundColor: ACCENT }
               : { backgroundColor: "#1E293B" },
           ]}
         >
@@ -274,7 +272,7 @@ export default function ChatDetailScreen() {
       {/* Messages */}
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={GOLD} />
+          <ActivityIndicator size="large" color={ACCENT} />
         </View>
       ) : (
         <FlatList
@@ -447,7 +445,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: GOLD,
+    backgroundColor: ACCENT,
     justifyContent: "center",
     alignItems: "center",
   },

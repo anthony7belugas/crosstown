@@ -13,10 +13,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebaseConfig";
+import { ACCENT, USC_RED, UCLA_BLUE, ACCENT_LIGHT } from "../../utils/colors";
 
-const GOLD = "#FFD100";
-const CARDINAL = "#9B1B30";
-const BRUIN_BLUE = "#2774AE";
 
 interface UserData {
   name: string;
@@ -105,14 +103,14 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const sideColor = userData?.side === "usc" ? CARDINAL : BRUIN_BLUE;
+  const sideColor = userData?.side === "usc" ? USC_RED : UCLA_BLUE;
   const sideName = userData?.side === "usc" ? "USC" : "UCLA";
 
   if (loading) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={GOLD} />
+          <ActivityIndicator size="large" color={ACCENT} />
         </View>
       </View>
     );
@@ -137,7 +135,7 @@ export default function ProfileScreen() {
         {/* Likes counter card */}
         <Pressable style={styles.likesCard}>
           <View style={styles.likesLeft}>
-            <FontAwesome name="heart" size={22} color={GOLD} />
+            <FontAwesome name="heart" size={22} color={ACCENT} />
             <View>
               <Text style={styles.likesCount}>{likesCount}</Text>
               <Text style={styles.likesLabel}>rivals liked you</Text>
@@ -233,7 +231,7 @@ export default function ProfileScreen() {
             style={styles.editButton}
             onPress={() => router.push("/profile/edit" as any)}
           >
-            <FontAwesome name="pencil" size={14} color={GOLD} />
+            <FontAwesome name="pencil" size={14} color={ACCENT} />
             <Text style={styles.editButtonText}>Edit Profile</Text>
           </Pressable>
         </View>
@@ -288,15 +286,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "rgba(255,209,0,0.06)",
+    backgroundColor: "rgba(245, 158, 11, 0.06)",
     borderWidth: 1,
-    borderColor: "rgba(255,209,0,0.12)",
+    borderColor: ACCENT_LIGHT,
     borderRadius: 16,
     padding: 18,
     marginBottom: 16,
   },
   likesLeft: { flexDirection: "row", alignItems: "center", gap: 14 },
-  likesCount: { fontSize: 28, fontWeight: "900", color: GOLD },
+  likesCount: { fontSize: 28, fontWeight: "900", color: ACCENT },
   likesLabel: { fontSize: 13, color: "rgba(255,255,255,0.4)", marginTop: -2 },
   blurredGrid: { flexDirection: "row", gap: 6 },
   blurredThumb: {
@@ -398,7 +396,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "rgba(255,255,255,0.06)",
   },
-  editButtonText: { fontSize: 15, fontWeight: "600", color: GOLD },
+  editButtonText: { fontSize: 15, fontWeight: "600", color: ACCENT },
 
   // Actions
   actionsSection: {

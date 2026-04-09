@@ -68,35 +68,60 @@
       authDomain: "crosstown-4476c.firebaseapp.com",
       projectId: "crosstown-4476c",
     });
-    const auth = getAuth(app);
 
+    const auth = getAuth(app);
+    const content = document.getElementById("content");
+
+    // Parse URL params
     const params = new URLSearchParams(window.location.search);
     const mode = params.get("mode");
     const oobCode = params.get("oobCode");
-    const content = document.getElementById("content");
 
-    function show(icon, title, msg) {
+    // Matches Besties pattern exactly: define functions first, call at bottom
+    async function handleVerification() {
+      if (mode !== "verifyEmail" || !oobCode) {
+        showError();
+        return;
+      }
+
+      try {
+        await applyActionCode(auth, oobCode);
+        showSuccess();
+      } catch (error) {
+        console.error("Verification error:", error);
+        if (error.code === "auth/invalid-action-code") {
+          showExpired();
+        } else {
+          showError();
+        }
+      }
+    }
+
+    function showSuccess() {
       content.innerHTML = `
-        <div class="icon">${icon}</div>
-        <div class="title">${title}</div>
-        <div class="message">${msg}</div>
+        <div class="icon">\u2705</div>
+        <div class="title">You're verified!</div>
+        <div class="message">Welcome to CrossTown. Head back to the app \u2014 it'll update automatically.</div>
       `;
     }
 
-    if (mode === "verifyEmail" && oobCode) {
-      try {
-        await applyActionCode(auth, oobCode);
-        show("\u2705", "You're verified!", "Welcome to CrossTown. Head back to the app \u2014 it'll update automatically.");
-      } catch (error) {
-        if (error.code === "auth/expired-action-code" || error.code === "auth/invalid-action-code") {
-          show("\u23F0", "Link expired", 'Open the app and tap "Resend" to get a new one.');
-        } else {
-          show("\u274C", "Something went wrong", 'Open the app and tap "Resend" to get a new verification email.');
-        }
-      }
-    } else {
-      show("\u274C", "Invalid link", "This verification link is not valid.");
+    function showExpired() {
+      content.innerHTML = `
+        <div class="icon">\u23F0</div>
+        <div class="title">Link expired</div>
+        <div class="message">This verification link has already been used or expired.<br/>Open the app and tap "Resend" to get a new one.</div>
+      `;
     }
+
+    function showError() {
+      content.innerHTML = `
+        <div class="icon">\u274C</div>
+        <div class="title">Something went wrong</div>
+        <div class="message">Open the app and tap "Resend" to get a new verification email.</div>
+      `;
+    }
+
+    handleVerification();
   </script>
 </body>
 </html>
