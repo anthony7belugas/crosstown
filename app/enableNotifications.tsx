@@ -1,0 +1,180 @@
+// app/enableNotifications.tsx
+// Shown after onboarding completes — asks user to enable push notifications
+// Similar to Besties enableNotifications.tsx
+import { FontAwesome } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import {
+  Animated, Pressable, StyleSheet, Text, View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { registerForPushNotifications } from "../utils/pushNotifications";
+
+const GOLD = "#FFD100";
+
+export default function EnableNotificationsScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const bellScale = new Animated.Value(1);
+
+  // Pulse animation for bell
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bellScale, {
+          toValue: 1.15,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(bellScale, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const handleEnable = async () => {
+    setLoading(true);
+    try {
+      await registerForPushNotifications();
+    } catch (e) {
+      console.error("Error enabling notifications:", e);
+    } finally {
+      setLoading(false);
+      router.replace("/(tabs)/swipe");
+    }
+  };
+
+  const handleSkip = () => {
+    router.replace("/(tabs)/swipe");
+  };
+
+  return (
+    <View
+      style={[
+        styles.container,
+        { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 32 },
+      ]}
+    >
+      <View style={styles.content}>
+        <Animated.View
+          style={[styles.iconCircle, { transform: [{ scale: bellScale }] }]}
+        >
+          <FontAwesome name="bell" size={48} color={GOLD} />
+        </Animated.View>
+
+        <Text style={styles.title}>Don't Miss a Match</Text>
+        <Text style={styles.subtitle}>
+          Get notified when someone from the rival school likes you, when you
+          match, and when they message you.
+        </Text>
+
+        <View style={styles.previewList}>
+          <View style={styles.previewItem}>
+            <Text style={styles.previewEmoji}>🔥</Text>
+            <Text style={styles.previewText}>
+              "A rival just matched with you"
+            </Text>
+          </View>
+          <View style={styles.previewItem}>
+            <Text style={styles.previewEmoji}>❤️</Text>
+            <Text style={styles.previewText}>
+              "Someone from the other side liked you"
+            </Text>
+          </View>
+          <View style={styles.previewItem}>
+            <Text style={styles.previewEmoji}>💬</Text>
+            <Text style={styles.previewText}>New message from your match</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.bottomSection}>
+        <Pressable
+          style={styles.enableButton}
+          onPress={handleEnable}
+          disabled={loading}
+        >
+          <FontAwesome name="bell" size={18} color="#1E293B" />
+          <Text style={styles.enableText}>
+            {loading ? "Setting up..." : "Enable Notifications"}
+          </Text>
+        </Pressable>
+
+        <Pressable style={styles.skipButton} onPress={handleSkip}>
+          <Text style={styles.skipText}>Maybe Later</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#0F172A",
+    justifyContent: "space-between",
+    paddingHorizontal: 32,
+  },
+  content: { flex: 1, justifyContent: "center", alignItems: "center" },
+  iconCircle: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: "rgba(255,209,0,0.08)",
+    borderWidth: 2,
+    borderColor: "rgba(255,209,0,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "900",
+    color: "#fff",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "rgba(255,255,255,0.45)",
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 36,
+  },
+  previewList: { width: "100%", gap: 14 },
+  previewItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+  },
+  previewEmoji: { fontSize: 22 },
+  previewText: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.6)",
+    flex: 1,
+  },
+  bottomSection: { width: "100%", alignItems: "center" },
+  enableButton: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: GOLD,
+    borderRadius: 16,
+    paddingVertical: 18,
+    gap: 10,
+  },
+  enableText: { fontSize: 18, fontWeight: "700", color: "#1E293B" },
+  skipButton: { paddingVertical: 16 },
+  skipText: { fontSize: 15, color: "rgba(255,255,255,0.35)" },
+});
