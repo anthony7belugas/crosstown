@@ -12,9 +12,14 @@
 
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
+const { getAuth } = require("firebase-admin/auth");
 const { Expo } = require("expo-server-sdk");
+
+const resendApiKey = defineSecret("RESEND_API_KEY");
 
 initializeApp();
 const db = getFirestore();
@@ -364,6 +369,110 @@ exports.dailyCleanup = onSchedule(
       }
     } catch (error) {
       console.error("Error in daily cleanup:", error);
+    }
+  }
+);
+
+// ============================================
+// EMAIL VERIFICATION VIA RESEND
+// Bypasses Firebase SMTP — sends directly via Resend REST API
+//
+// To set the secret:
+//   firebase functions:secrets:set RESEND_API_KEY
+//   Then paste your Resend API key (re_...) when prompted
+// ============================================
+
+exports.sendVerificationEmail = onCall(
+  { secrets: [resendApiKey] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be logged in");
+    }
+
+    const uid = request.auth.uid;
+    const email = request.auth.token.email;
+
+    if (!email) {
+      throw new HttpsError("failed-precondition", "No email associated with account");
+    }
+
+    // Rate limit: 1 email per 30 seconds per user
+    const userRef = db.collection("users").doc(uid);
+    const userDoc = await userRef.get();
+    if (userDoc.exists) {
+      const lastSent = userDoc.data().lastVerificationEmailSent;
+      if (lastSent) {
+        const secondsAgo = (Date.now() - lastSent.toMillis()) / 1000;
+        if (secondsAgo < 30) {
+          throw new HttpsError(
+            "resource-exhausted",
+            `Please wait ${Math.ceil(30 - secondsAgo)} seconds before resending.`
+          );
+        }
+      }
+    }
+
+    try {
+      // Generate verification link via Firebase Admin SDK
+      const verificationLink = await getAuth().generateEmailVerificationLink(email, {
+        url: "https://crosstown-4476c.firebaseapp.com",
+      });
+
+      // Send via Resend REST API
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${resendApiKey.value()}`,
+        },
+        body: JSON.stringify({
+          from: "CrossTown <crosstown@allmybesties.com>",
+          to: email,
+          subject: "Verify your email for CrossTown",
+          html: `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px; background-color: #0F172A;">
+              <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="font-size: 36px; margin: 0; letter-spacing: 2px;">
+                  <span style="color: #DC2626;">CROSS</span><span style="color: #2563EB;">TOWN</span>
+                </h1>
+                <p style="color: #94A3B8; font-size: 14px; margin-top: 4px;">Date Your Rival</p>
+              </div>
+              <p style="color: #E2E8F0; font-size: 16px; line-height: 24px; text-align: center;">
+                Welcome to CrossTown! Tap the button below to verify your student email.
+              </p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${verificationLink}"
+                   style="background-color: #FBBF24; color: #1E293B; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px; display: inline-block;">
+                  Verify Email
+                </a>
+              </div>
+              <p style="color: #64748B; font-size: 12px; text-align: center;">
+                If the button doesn't work, copy and paste this link into your browser:<br/>
+                <a href="${verificationLink}" style="color: #94A3B8; word-break: break-all;">${verificationLink}</a>
+              </p>
+            </div>
+          `,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error("Resend API error:", response.status, errorData);
+        throw new HttpsError("internal", "Failed to send verification email");
+      }
+
+      const result = await response.json();
+      console.log(`Verification sent to ${email} via Resend (ID: ${result.id})`);
+
+      // Record timestamp for rate limiting
+      await userRef.set({ lastVerificationEmailSent: new Date() }, { merge: true });
+
+      return { success: true };
+
+    } catch (error) {
+      console.error("Verification email error:", error);
+      if (error.code) throw error;
+      throw new HttpsError("internal", "Failed to send verification email. Please try again.");
     }
   }
 );

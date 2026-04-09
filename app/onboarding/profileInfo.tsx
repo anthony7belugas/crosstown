@@ -82,7 +82,7 @@ export default function ProfileInfoScreen() {
       });
 
       // Navigate to main app
-      router.replace("/(tabs)/swipe");
+      router.replace("/enableNotifications");
     } catch (error) {
       console.error("Error creating profile:", error);
       Alert.alert("Error", "Failed to create your profile. Please try again.");

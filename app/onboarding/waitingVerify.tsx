@@ -2,7 +2,7 @@
 // Polls Firebase Auth until email is verified, then continues onboarding
 import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { sendEmailVerification } from "firebase/auth";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import React, { useEffect, useRef, useState } from "react";
 import { Alert, Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -51,7 +51,9 @@ export default function WaitingVerifyScreen() {
   const handleResend = async () => {
     if (resendCooldown > 0 || !auth.currentUser) return;
     try {
-      await sendEmailVerification(auth.currentUser);
+      const functions = getFunctions();
+      const sendVerification = httpsCallable(functions, "sendVerificationEmail");
+      await sendVerification();
       setResendCooldown(60);
       Alert.alert("Email Sent", "Check your inbox (and spam folder).");
     } catch {

@@ -1,7 +1,8 @@
 // app/onboarding/emailVerify.tsx
 import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import React, { useRef, useState } from "react";
 import { ActivityIndicator, Alert, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native";
@@ -40,7 +41,14 @@ export default function EmailVerifyScreen() {
     setLoading(true);
     try {
       const cred = await createUserWithEmailAndPassword(auth, email.toLowerCase().trim(), password);
-      await sendEmailVerification(cred.user);
+      // Send verification email via Resend Cloud Function
+      try {
+        const functions = getFunctions();
+        const sendVerification = httpsCallable(functions, "sendVerificationEmail");
+        await sendVerification();
+      } catch (emailError) {
+        console.warn("[Signup] Verification email error:", emailError);
+      }
       router.replace({ pathname: "/onboarding/waitingVerify", params: { side } });
     } catch (error: any) {
       if (error.code === "auth/email-already-in-use") {
