@@ -426,7 +426,7 @@ exports.sendVerificationEmail = onCall(
           "Authorization": `Bearer ${resendApiKey.value()}`,
         },
         body: JSON.stringify({
-          from: "CrossTown <crosstown@allmybesties.com>",
+          from: "CrossTown <verify@allmybesties.com>",
           to: email,
           subject: "Verify your email for CrossTown",
           html: `
