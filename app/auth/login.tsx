@@ -1,6 +1,6 @@
 // app/auth/login.tsx
 import { FontAwesome } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import React, { useRef, useState } from "react";
 import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -72,6 +72,16 @@ export default function LoginScreen() {
           <Pressable onPress={handleLogin} disabled={loading || !email.trim() || !password} style={[styles.loginButton, (loading || !email.trim() || !password) && styles.disabled]}>
             {loading ? <ActivityIndicator color="#1E293B" /> : <><Text style={styles.loginButtonText}>Log In</Text><FontAwesome name="arrow-right" size={18} color="#1E293B" /></>}
           </Pressable>
+          <View style={styles.legalContainer}>
+            <Text style={styles.legalText}>By logging in, you agree to our </Text>
+            <Link href="/legal/terms" asChild>
+              <TouchableOpacity><Text style={styles.legalLink}>Terms</Text></TouchableOpacity>
+            </Link>
+            <Text style={styles.legalText}> & </Text>
+            <Link href="/legal/privacy" asChild>
+              <TouchableOpacity><Text style={styles.legalLink}>Privacy Policy</Text></TouchableOpacity>
+            </Link>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -94,4 +104,7 @@ const styles = StyleSheet.create({
   loginButton: { width: "100%", flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: NEUTRAL_ACCENT, borderRadius: 16, paddingVertical: 18, gap: 10, ...Platform.select({ ios: { shadowColor: NEUTRAL_ACCENT, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 12 }, android: { elevation: 8 } }) },
   disabled: { opacity: 0.4 },
   loginButtonText: { fontSize: 18, fontWeight: "700", color: "#1E293B" },
+  legalContainer: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", marginTop: 16, paddingHorizontal: 10 },
+  legalText: { fontSize: 12, color: "rgba(255,255,255,0.35)" },
+  legalLink: { fontSize: 12, fontWeight: "600", color: NEUTRAL_ACCENT },
 });

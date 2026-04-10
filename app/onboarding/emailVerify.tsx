@@ -1,6 +1,6 @@
 // app/onboarding/emailVerify.tsx
 import { FontAwesome } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import React, { useRef, useState } from "react";
@@ -95,6 +95,16 @@ export default function EmailVerifyScreen() {
           <Pressable onPress={handleSignup} disabled={!isValid || loading} style={[styles.continueButton, (!isValid || loading) && styles.disabled]}>
             {loading ? <ActivityIndicator color="#1E293B" /> : <><Text style={styles.continueText}>Create Account</Text><FontAwesome name="arrow-right" size={18} color="#1E293B" /></>}
           </Pressable>
+          <View style={styles.legalContainer}>
+            <Text style={styles.legalText}>By signing up, you agree to our </Text>
+            <Link href="/legal/terms" asChild>
+              <TouchableOpacity><Text style={styles.legalLink}>Terms</Text></TouchableOpacity>
+            </Link>
+            <Text style={styles.legalText}> & </Text>
+            <Link href="/legal/privacy" asChild>
+              <TouchableOpacity><Text style={styles.legalLink}>Privacy Policy</Text></TouchableOpacity>
+            </Link>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -123,4 +133,7 @@ const createStyles = (_s: string) => StyleSheet.create({
   continueButton: { width: "100%", flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: accentColor(_s), borderRadius: 16, paddingVertical: 18, gap: 10, ...Platform.select({ ios: { shadowColor: accentColor(_s), shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 12 }, android: { elevation: 8 } }) },
   disabled: { opacity: 0.4 },
   continueText: { fontSize: 18, fontWeight: "700", color: "#1E293B" },
+  legalContainer: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", marginTop: 16, paddingHorizontal: 10 },
+  legalText: { fontSize: 12, color: "rgba(255,255,255,0.35)" },
+  legalLink: { fontSize: 12, fontWeight: "600", color: accentColor(_s) },
 });
