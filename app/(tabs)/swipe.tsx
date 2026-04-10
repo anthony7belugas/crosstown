@@ -57,7 +57,8 @@ export default function SwipeScreen() {
   const matchScale = useRef(new Animated.Value(0)).current;
   const [currentUserData, setCurrentUserData] = useState<any>(null);
 
-  const styles = createStyles(currentUserData?.side || "usc");
+  const userSide = currentUserData?.side || "usc";
+  const styles = createStyles(userSide);
 
   useEffect(() => { loadData(); }, []);
 
@@ -185,16 +186,16 @@ export default function SwipeScreen() {
 
   const currentProfile = profiles[currentIndex];
 
-  if (loading) return (<View style={[styles.container, { paddingTop: insets.top }]}><View style={styles.header}><Text style={styles.headerTitle}>CrossTown</Text></View><View style={styles.centered}><ActivityIndicator size="large" color={accentColor(_s)} /></View></View>);
-  if (swipesRemaining <= 0) return (<View style={[styles.container, { paddingTop: insets.top }]}><View style={styles.header}><Text style={styles.headerTitle}>CrossTown</Text></View><View style={styles.centered}><View style={styles.emptyIcon}><FontAwesome name="clock-o" size={40} color={accentColor(_s)} /></View><Text style={styles.emptyTitle}>Daily Limit Reached</Text><Text style={styles.emptySubtitle}>You've used all 30 swipes today.{"\n"}Come back tomorrow!</Text></View></View>);
-  if (!currentProfile) return (<View style={[styles.container, { paddingTop: insets.top }]}><View style={styles.header}><Text style={styles.headerTitle}>CrossTown</Text></View><View style={styles.centered}><View style={styles.emptyIcon}><FontAwesome name="search" size={40} color={accentColor(_s)} /></View><Text style={styles.emptyTitle}>No More Profiles</Text><Text style={styles.emptySubtitle}>You've seen everyone for now.{"\n"}Check back later!</Text><Pressable style={styles.refreshBtn} onPress={loadData}><Text style={styles.refreshText}>Refresh</Text></Pressable></View></View>);
+  if (loading) return (<View style={[styles.container, { paddingTop: insets.top }]}><View style={styles.header}><Text style={styles.headerTitle}>CrossTown</Text></View><View style={styles.centered}><ActivityIndicator size="large" color={accentColor(userSide)} /></View></View>);
+  if (swipesRemaining <= 0) return (<View style={[styles.container, { paddingTop: insets.top }]}><View style={styles.header}><Text style={styles.headerTitle}>CrossTown</Text></View><View style={styles.centered}><View style={styles.emptyIcon}><FontAwesome name="clock-o" size={40} color={accentColor(userSide)} /></View><Text style={styles.emptyTitle}>Daily Limit Reached</Text><Text style={styles.emptySubtitle}>You've used all 30 swipes today.{"\n"}Come back tomorrow!</Text></View></View>);
+  if (!currentProfile) return (<View style={[styles.container, { paddingTop: insets.top }]}><View style={styles.header}><Text style={styles.headerTitle}>CrossTown</Text></View><View style={styles.centered}><View style={styles.emptyIcon}><FontAwesome name="search" size={40} color={accentColor(userSide)} /></View><Text style={styles.emptyTitle}>No More Profiles</Text><Text style={styles.emptySubtitle}>You've seen everyone for now.{"\n"}Check back later!</Text><Pressable style={styles.refreshBtn} onPress={loadData}><Text style={styles.refreshText}>Refresh</Text></Pressable></View></View>);
 
   const sideColor = schoolColor(currentProfile.side);
   const sideName = currentProfile.side === "usc" ? "USC" : "UCLA";
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}><Text style={styles.headerTitle}>CrossTown</Text><View style={styles.swipeCounter}><FontAwesome name="heart" size={12} color={accentColor(_s)} /><Text style={styles.swipeCountText}>{swipesRemaining}</Text></View></View>
+      <View style={styles.header}><Text style={styles.headerTitle}>CrossTown</Text><View style={styles.swipeCounter}><FontAwesome name="heart" size={12} color={accentColor(userSide)} /><Text style={styles.swipeCountText}>{swipesRemaining}</Text></View></View>
       <View style={styles.cardContainer}>
         <Animated.View {...panResponder.panHandlers} style={[styles.card, { transform: [{ translateX: position.x }, { translateY: position.y }, { rotate }] }]}>
           <Image source={{ uri: currentProfile.photos[currentPhotoIndex] || "" }} style={styles.cardImage} />

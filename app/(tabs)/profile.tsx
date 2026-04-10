@@ -37,7 +37,8 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
-  const styles = createStyles(userData?.side || "usc");
+  const profileSide = userData?.side || "usc";
+  const styles = createStyles(profileSide);
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -112,7 +113,7 @@ export default function ProfileScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={accentColor(_s)} />
+          <ActivityIndicator size="large" color={accentColor(profileSide)} />
         </View>
       </View>
     );
@@ -137,7 +138,7 @@ export default function ProfileScreen() {
         {/* Likes counter card */}
         <Pressable style={styles.likesCard}>
           <View style={styles.likesLeft}>
-            <FontAwesome name="heart" size={22} color={accentColor(_s)} />
+            <FontAwesome name="heart" size={22} color={accentColor(profileSide)} />
             <View>
               <Text style={styles.likesCount}>{likesCount}</Text>
               <Text style={styles.likesLabel}>rivals liked you</Text>
@@ -233,7 +234,7 @@ export default function ProfileScreen() {
             style={styles.editButton}
             onPress={() => router.push("/profile/edit" as any)}
           >
-            <FontAwesome name="pencil" size={14} color={accentColor(_s)} />
+            <FontAwesome name="pencil" size={14} color={accentColor(profileSide)} />
             <Text style={styles.editButtonText}>Edit Profile</Text>
           </Pressable>
         </View>
