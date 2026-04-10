@@ -30,9 +30,10 @@ export default function EmailVerifyScreen() {
   const passwordsMatch = password === confirmPassword;
   const isValid = isValidEmail && password.length >= 6 && passwordsMatch && confirmPassword.length > 0;
 
+  const styles = createStyles(side);
+
   const handleSignup = async () => {
     Keyboard.dismiss();
-  const styles = createStyles(side);
 
     if (!isValidEmail) { Alert.alert("Invalid Email", `Please use your ${emailDomain} email.`); return; }
     if (password.length < 6) { Alert.alert("Weak Password", "Password must be at least 6 characters."); return; }

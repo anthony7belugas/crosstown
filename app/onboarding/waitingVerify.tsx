@@ -69,7 +69,7 @@ export default function WaitingVerifyScreen() {
     <View style={[styles.container, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 32 }]}>
       <View style={styles.content}>
         <Animated.View style={[styles.spinnerContainer, { transform: [{ rotate: spin }] }]}>
-          <FontAwesome name="circle-o-notch" size={50} color={accentColor(_s)} />
+          <FontAwesome name="circle-o-notch" size={50} color={accentColor(side)} />
         </Animated.View>
         <Text style={styles.title}>Check Your Email</Text>
         <Text style={styles.subtitle}>
