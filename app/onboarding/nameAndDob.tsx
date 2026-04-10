@@ -50,9 +50,6 @@ export default function NameAndDobScreen() {
     <View style={styles.container}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <FontAwesome name="arrow-left" size={20} color="rgba(255,255,255,0.6)" />
-          </Pressable>
           <View style={styles.progressBar}><View style={[styles.progressFill, { width: "42%" }]} /></View>
         </View>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -98,9 +95,8 @@ export default function NameAndDobScreen() {
 
 const createStyles = (_s: string) => StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0F172A" },
-  header: { paddingHorizontal: 20, paddingBottom: 10, flexDirection: "row", alignItems: "center", gap: 16 },
-  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.08)", justifyContent: "center", alignItems: "center" },
-  progressBar: { flex: 1, height: 4, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 2 },
+  header: { paddingHorizontal: 20, paddingBottom: 10 },
+  progressBar: { height: 4, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 2 },
   progressFill: { height: "100%", backgroundColor: accentColor(_s), borderRadius: 2 },
   scrollContent: { paddingHorizontal: 24, paddingTop: 30 },
   title: { fontSize: 28, fontWeight: "800", color: "#fff", marginBottom: 8, textAlign: "center" },
