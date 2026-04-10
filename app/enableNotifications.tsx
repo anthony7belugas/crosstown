@@ -1,16 +1,15 @@
 // app/enableNotifications.tsx
 // Shown after onboarding completes — asks user to enable push notifications
-// Similar to Besties enableNotifications.tsx
 import { FontAwesome } from "@expo/vector-icons";
+import * as Notifications from "expo-notifications";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { doc, updateDoc } from "firebase/firestore";
 import React, { useState } from "react";
-import {
-  Animated, Pressable, StyleSheet, Text, View,
-} from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { auth, db } from "../firebaseConfig";
 import { registerForPushNotifications } from "../utils/pushNotifications";
 import { accentColor, accentBg } from "../utils/colors";
-
 
 export default function EnableNotificationsScreen() {
   const { side } = useLocalSearchParams<{ side: string }>();
@@ -19,23 +18,38 @@ export default function EnableNotificationsScreen() {
   const [loading, setLoading] = useState(false);
   const bellScale = new Animated.Value(1);
 
+  const userSide = side || "usc";
+
+  // If permissions already granted on mount, mark shown and skip straight through
+  React.useEffect(() => {
+    async function checkExisting() {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status === "granted") {
+        await markShownAndNavigate();
+      }
+    }
+    checkExisting();
+  }, []);
+
   // Pulse animation for bell
   React.useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(bellScale, {
-          toValue: 1.15,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(bellScale, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
+        Animated.timing(bellScale, { toValue: 1.15, duration: 800, useNativeDriver: true }),
+        Animated.timing(bellScale, { toValue: 1, duration: 800, useNativeDriver: true }),
       ])
     ).start();
   }, []);
+
+  // Shared exit — always writes notificationPromptShown before leaving
+  const markShownAndNavigate = async () => {
+    if (auth.currentUser) {
+      await updateDoc(doc(db, "users", auth.currentUser.uid), {
+        notificationPromptShown: true,
+      });
+    }
+    router.replace("/(tabs)/swipe");
+  };
 
   const handleEnable = async () => {
     setLoading(true);
@@ -45,28 +59,21 @@ export default function EnableNotificationsScreen() {
       console.error("Error enabling notifications:", e);
     } finally {
       setLoading(false);
-      router.replace("/(tabs)/swipe");
+      await markShownAndNavigate();
     }
   };
 
-  const handleSkip = () => {
-    router.replace("/(tabs)/swipe");
+  const handleSkip = async () => {
+    await markShownAndNavigate();
   };
 
-  const styles = createStyles(side || "usc");
+  const styles = createStyles(userSide);
 
   return (
-    <View
-      style={[
-        styles.container,
-        { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 32 },
-      ]}
-    >
+    <View style={[styles.container, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 32 }]}>
       <View style={styles.content}>
-        <Animated.View
-          style={[styles.iconCircle, { transform: [{ scale: bellScale }] }]}
-        >
-          <FontAwesome name="bell" size={48} color={accentColor(side)} />
+        <Animated.View style={[styles.iconCircle, { transform: [{ scale: bellScale }] }]}>
+          <FontAwesome name="bell" size={48} color={accentColor(userSide)} />
         </Animated.View>
 
         <Text style={styles.title}>Don't Miss a Match</Text>
@@ -78,15 +85,11 @@ export default function EnableNotificationsScreen() {
         <View style={styles.previewList}>
           <View style={styles.previewItem}>
             <Text style={styles.previewEmoji}>🔥</Text>
-            <Text style={styles.previewText}>
-              "A rival just matched with you"
-            </Text>
+            <Text style={styles.previewText}>"A rival just matched with you"</Text>
           </View>
           <View style={styles.previewItem}>
             <Text style={styles.previewEmoji}>❤️</Text>
-            <Text style={styles.previewText}>
-              "Someone from the other side liked you"
-            </Text>
+            <Text style={styles.previewText}>"Someone from the other side liked you"</Text>
           </View>
           <View style={styles.previewItem}>
             <Text style={styles.previewEmoji}>💬</Text>
@@ -96,15 +99,9 @@ export default function EnableNotificationsScreen() {
       </View>
 
       <View style={styles.bottomSection}>
-        <Pressable
-          style={styles.enableButton}
-          onPress={handleEnable}
-          disabled={loading}
-        >
+        <Pressable style={styles.enableButton} onPress={handleEnable} disabled={loading}>
           <FontAwesome name="bell" size={18} color="#1E293B" />
-          <Text style={styles.enableText}>
-            {loading ? "Setting up..." : "Enable Notifications"}
-          </Text>
+          <Text style={styles.enableText}>{loading ? "Setting up..." : "Enable Notifications"}</Text>
         </Pressable>
 
         <Pressable style={styles.skipButton} onPress={handleSkip}>
@@ -134,13 +131,7 @@ const createStyles = (_s: string) => StyleSheet.create({
     alignItems: "center",
     marginBottom: 32,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "900",
-    color: "#fff",
-    textAlign: "center",
-    marginBottom: 12,
-  },
+  title: { fontSize: 28, fontWeight: "900", color: "#fff", textAlign: "center", marginBottom: 12 },
   subtitle: {
     fontSize: 16,
     color: "rgba(255,255,255,0.45)",
@@ -161,11 +152,7 @@ const createStyles = (_s: string) => StyleSheet.create({
     borderColor: "rgba(255,255,255,0.06)",
   },
   previewEmoji: { fontSize: 22 },
-  previewText: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.6)",
-    flex: 1,
-  },
+  previewText: { fontSize: 14, color: "rgba(255,255,255,0.6)", flex: 1 },
   bottomSection: { width: "100%", alignItems: "center" },
   enableButton: {
     width: "100%",

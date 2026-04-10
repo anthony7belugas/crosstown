@@ -48,7 +48,6 @@ export default function RootLayout() {
       // Logged in but email not verified → waiting screen
       if (!user.emailVerified) {
         setHasNavigated(true);
-        // Determine their side from email domain
         const email = user.email || "";
         const side = email.endsWith("@usc.edu") ? "usc" : "ucla";
         router.replace({
@@ -75,13 +74,18 @@ export default function RootLayout() {
           // Check notification prompt before routing to main app
           if (!userData.notificationPromptShown) {
             const { status } = await Notifications.getPermissionsAsync();
+            const email = user.email || "";
+            const side = email.endsWith("@usc.edu") ? "usc" : "ucla";
             if (status === "granted") {
               await updateDoc(doc(db, "users", user.uid), { notificationPromptShown: true });
               setHasNavigated(true);
               router.replace("/(tabs)/swipe");
             } else {
               setHasNavigated(true);
-              router.replace("/enableNotifications");
+              router.replace({
+                pathname: "/enableNotifications",
+                params: { side },
+              });
             }
           } else {
             setHasNavigated(true);
