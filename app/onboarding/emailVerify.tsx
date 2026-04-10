@@ -17,27 +17,22 @@ export default function EmailVerifyScreen() {
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const passwordRef = useRef<TextInput>(null);
-  const confirmRef = useRef<TextInput>(null);
 
+  const styles = createStyles(side);
   const sideColor = schoolColor(side);
   const emailDomain = side === "usc" ? "@usc.edu" : "@ucla.edu";
   const sideName = side === "usc" ? "USC" : "UCLA";
   const isValidEmail = email.toLowerCase().endsWith(emailDomain);
-  const passwordsMatch = password === confirmPassword;
-  const isValid = isValidEmail && password.length >= 6 && passwordsMatch && confirmPassword.length > 0;
-
-  const styles = createStyles(side);
+  const isValid = isValidEmail && password.length >= 6;
 
   const handleSignup = async () => {
     Keyboard.dismiss();
 
     if (!isValidEmail) { Alert.alert("Invalid Email", `Please use your ${emailDomain} email.`); return; }
     if (password.length < 6) { Alert.alert("Weak Password", "Password must be at least 6 characters."); return; }
-    if (!passwordsMatch) { Alert.alert("Password Mismatch", "Passwords don't match."); return; }
 
     setLoading(true);
     try {
@@ -90,16 +85,8 @@ export default function EmailVerifyScreen() {
             <Text style={styles.inputLabel}>Password</Text>
             <View style={styles.inputContainer}>
               <FontAwesome name="lock" size={16} color="rgba(255,255,255,0.3)" style={styles.inputIcon} />
-              <TextInput ref={passwordRef} style={styles.input} placeholder="At least 6 characters" placeholderTextColor="rgba(255,255,255,0.2)" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} autoCapitalize="none" returnKeyType="next" onSubmitEditing={() => confirmRef.current?.focus()} />
+              <TextInput ref={passwordRef} style={styles.input} placeholder="At least 6 characters" placeholderTextColor="rgba(255,255,255,0.2)" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} autoCapitalize="none" returnKeyType="done" onSubmitEditing={handleSignup} />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}><FontAwesome name={showPassword ? "eye-slash" : "eye"} size={18} color="rgba(255,255,255,0.3)" /></TouchableOpacity>
-            </View>
-          </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Confirm Password</Text>
-            <View style={styles.inputContainer}>
-              <FontAwesome name="lock" size={16} color="rgba(255,255,255,0.3)" style={styles.inputIcon} />
-              <TextInput ref={confirmRef} style={styles.input} placeholder="Re-enter password" placeholderTextColor="rgba(255,255,255,0.2)" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={!showPassword} autoCapitalize="none" returnKeyType="done" onSubmitEditing={handleSignup} />
-              {confirmPassword.length > 0 && <FontAwesome name={passwordsMatch ? "check-circle" : "times-circle"} size={18} color={passwordsMatch ? "#10B981" : "#EF4444"} />}
             </View>
           </View>
           <View style={{ height: 40 }} />

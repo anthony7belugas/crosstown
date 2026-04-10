@@ -426,7 +426,7 @@ exports.sendVerificationEmail = onCall(
           "Authorization": `Bearer ${resendApiKey.value()}`,
         },
         body: JSON.stringify({
-          from: "CrossTown <verify@allmybesties.com>",
+          from: "CrossTown <crosstown@allmybesties.com>",
           to: email,
           subject: "Verify your email for CrossTown",
           html: `
@@ -446,10 +446,10 @@ exports.sendVerificationEmail = onCall(
                   Verify Email
                 </a>
               </div>
-              <p style="color: #64748B; font-size: 12px; text-align: center;">
-                If the button doesn't work, copy and paste this link into your browser:<br/>
-                <a href="${verificationLink}" style="color: #94A3B8; word-break: break-all;">${verificationLink}</a>
-              </p>
+              <!--  <p style="color: #64748B; font-size: 12px; text-align: center;">
+              //   If the button doesn't work, copy and paste this link into your browser:<br/>
+              //   <a href="${verificationLink}" style="color: #94A3B8; word-break: break-all;">${verificationLink}</a>
+              // </p> -->
             </div>
           `,
         }),
