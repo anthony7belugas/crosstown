@@ -4,9 +4,9 @@ import { Link, useRouter } from 'expo-router';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
-  ACCENT,
   BG_PRIMARY,
   BG_SURFACE,
+  NEUTRAL_ACCENT,
   TEXT_PRIMARY,
   TEXT_SECONDARY,
 } from '../../utils/colors';
@@ -307,14 +307,14 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 15,
-    color: TEXT_SECONDARY,
+    color: TEXT_PRIMARY,
     marginBottom: 12,
     lineHeight: 22,
     paddingRight: 5,
   },
   bulletText: {
     fontSize: 15,
-    color: TEXT_SECONDARY,
+    color: TEXT_PRIMARY,
     marginBottom: 8,
     paddingLeft: 15,
     paddingRight: 10,
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   link: {},
   linkText: {
     fontSize: 16,
-    color: ACCENT,
+    color: NEUTRAL_ACCENT,
     textDecorationLine: 'underline',
     fontWeight: '600',
   },

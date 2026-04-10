@@ -134,6 +134,6 @@ const createStyles = (_s: string) => StyleSheet.create({
   disabled: { opacity: 0.4 },
   continueText: { fontSize: 18, fontWeight: "700", color: "#1E293B" },
   legalContainer: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", marginTop: 16, paddingHorizontal: 10 },
-  legalText: { fontSize: 12, color: "rgba(255,255,255,0.35)" },
+  legalText: { fontSize: 12, color: "rgba(255,255,255,0.55)" },
   legalLink: { fontSize: 12, fontWeight: "600", color: accentColor(_s) },
 });
