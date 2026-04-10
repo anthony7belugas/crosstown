@@ -141,7 +141,7 @@ export default function ChatScreen() {
           <Text style={styles.headerTitle}>Matches</Text>
         </View>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={accentColor(_s)} />
+          <ActivityIndicator size="large" color={accentColor(userSide)} />
         </View>
       </View>
     );
@@ -155,7 +155,7 @@ export default function ChatScreen() {
         </View>
         <View style={styles.centered}>
           <View style={styles.emptyIcon}>
-            <FontAwesome name="comment" size={40} color={accentColor(_s)} />
+            <FontAwesome name="comment" size={40} color={accentColor(userSide)} />
           </View>
           <Text style={styles.emptyTitle}>No Matches Yet</Text>
           <Text style={styles.emptySubtitle}>
@@ -196,7 +196,7 @@ export default function ChatScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={accentColor(_s)}
+            tintColor={accentColor(userSide)}
           />
         }
         ListHeaderComponent={
