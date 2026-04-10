@@ -13,7 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebaseConfig";
 import { getUserProfile } from "../../utils/userProfileCache";
-import { ACCENT, USC_RED, UCLA_BLUE, ACCENT_SUBTLE } from "../../utils/colors";
+import { accentColor, accentBg, schoolColor } from "../../utils/colors";
 
 
 interface MatchItem {
@@ -33,12 +33,20 @@ export default function ChatScreen() {
   const router = useRouter();
   const [matches, setMatches] = useState<MatchItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userSide, setUserSide] = useState<string>("usc");
   const [refreshing, setRefreshing] = useState(false);
   const unsubRef = useRef<(() => void) | null>(null);
+
+  const styles = createStyles(userSide);
 
   const setupListener = useCallback(() => {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
+
+    // Load current user side for accent colors
+    getDoc(doc(db, "users", uid)).then(meDoc => {
+      if (meDoc.exists()) setUserSide(meDoc.data().side || "usc");
+    }).catch(() => {});
 
     // Listen to matches where current user is a participant
     const matchesQuery = query(
@@ -133,7 +141,7 @@ export default function ChatScreen() {
           <Text style={styles.headerTitle}>Matches</Text>
         </View>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={ACCENT} />
+          <ActivityIndicator size="large" color={accentColor(_s)} />
         </View>
       </View>
     );
@@ -147,7 +155,7 @@ export default function ChatScreen() {
         </View>
         <View style={styles.centered}>
           <View style={styles.emptyIcon}>
-            <FontAwesome name="comment" size={40} color={ACCENT} />
+            <FontAwesome name="comment" size={40} color={accentColor(_s)} />
           </View>
           <Text style={styles.emptyTitle}>No Matches Yet</Text>
           <Text style={styles.emptySubtitle}>
@@ -188,7 +196,7 @@ export default function ChatScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={ACCENT}
+            tintColor={accentColor(_s)}
           />
         }
         ListHeaderComponent={
@@ -211,7 +219,7 @@ export default function ChatScreen() {
                         styles.matchCircleGlow,
                         {
                           borderColor:
-                            match.side === "usc" ? USC_RED : UCLA_BLUE,
+                            schoolColor(match.side),
                         },
                       ]}
                     >
@@ -272,7 +280,7 @@ export default function ChatScreen() {
                   styles.sideDot,
                   {
                     backgroundColor:
-                      item.side === "usc" ? USC_RED : UCLA_BLUE,
+                      schoolColor(item.side),
                   },
                 ]}
               />
@@ -308,7 +316,7 @@ export default function ChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (_s: string) => StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0F172A" },
   header: {
     flexDirection: "row",
@@ -321,8 +329,8 @@ const styles = StyleSheet.create({
   matchCount: {
     fontSize: 14,
     fontWeight: "700",
-    color: ACCENT,
-    backgroundColor: ACCENT_SUBTLE,
+    color: accentColor(_s),
+    backgroundColor: accentBg(_s, 0.1),
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
@@ -337,7 +345,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: ACCENT_SUBTLE,
+    backgroundColor: accentBg(_s, 0.1),
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,

@@ -13,13 +13,15 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ACCENT, USC_RED, UCLA_BLUE, ACCENT_MEDIUM } from "../../utils/colors";
+import { USC_RED, UCLA_BLUE, NEUTRAL_ACCENT, schoolColor } from "../../utils/colors";
 
 
 export default function PickSideScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [selected, setSelected] = useState<"usc" | "ucla" | null>(null);
+
+  const styles = createStyles(selected);
 
   // Animations
   const cardOpacity = useRef(new Animated.Value(0)).current;
@@ -101,7 +103,7 @@ export default function PickSideScreen() {
               styles.sideCard,
               { borderColor: USC_RED },
               selected === "usc" && styles.sideCardSelected,
-              selected === "usc" && { borderColor: USC_RED, backgroundColor: "rgba(155, 27, 48, 0.15)" },
+              selected === "usc" && { borderColor: USC_RED, backgroundColor: "rgba(220, 38, 38, 0.15)" },
             ]}
             onPress={() => setSelected("usc")}
           >
@@ -131,7 +133,7 @@ export default function PickSideScreen() {
               styles.sideCard,
               { borderColor: UCLA_BLUE },
               selected === "ucla" && styles.sideCardSelected,
-              selected === "ucla" && { borderColor: UCLA_BLUE, backgroundColor: "rgba(39, 116, 174, 0.15)" },
+              selected === "ucla" && { borderColor: UCLA_BLUE, backgroundColor: "rgba(37, 99, 235, 0.15)" },
             ]}
             onPress={() => setSelected("ucla")}
           >
@@ -195,7 +197,7 @@ export default function PickSideScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (_s: string | null) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0F172A",
@@ -299,12 +301,12 @@ const styles = StyleSheet.create({
   vsLine: {
     flex: 1,
     height: 1,
-    backgroundColor: ACCENT_MEDIUM,
+    backgroundColor: "rgba(226, 232, 240, 0.15)",
   },
   vsSmall: {
     fontSize: 16,
     fontWeight: "800",
-    color: ACCENT,
+    color: _s ? schoolColor(_s) : NEUTRAL_ACCENT,
     letterSpacing: 3,
   },
   footer: {
@@ -315,12 +317,12 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: ACCENT,
+    backgroundColor: _s ? schoolColor(_s) : NEUTRAL_ACCENT,
     borderRadius: 16,
     paddingVertical: 18,
     ...Platform.select({
       ios: {
-        shadowColor: ACCENT,
+        shadowColor: _s ? schoolColor(_s) : NEUTRAL_ACCENT,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.35,
         shadowRadius: 12,

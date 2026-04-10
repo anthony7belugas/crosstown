@@ -19,7 +19,7 @@ import { ReportModal } from "../../components/ReportModal";
 import { auth, db } from "../../firebaseConfig";
 import { blockUser, reportUser, ReportReason } from "../../utils/blockUtils";
 import { containsBannedWords } from "../../utils/contentFilter";
-import { ACCENT, USC_RED, UCLA_BLUE } from "../../utils/colors";
+import { accentColor, schoolColor } from "../../utils/colors";
 
 
 interface Message {
@@ -46,6 +46,7 @@ export default function ChatDetailScreen() {
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [mySide, setMySide] = useState<string>("usc");
   const [otherUser, setOtherUser] = useState<OtherUser | null>(null);
   const [showOptions, setShowOptions] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
@@ -54,8 +55,15 @@ export default function ChatDetailScreen() {
   const [reportLoading, setReportLoading] = useState(false);
 
   // Load match info + other user profile
+  const styles = createStyles(mySide);
+
   useEffect(() => {
     if (!matchId || !auth.currentUser) return;
+
+    // Load current user side
+    getDoc(doc(db, "users", auth.currentUser.uid)).then(meSnap => {
+      if (meSnap.exists()) setMySide(meSnap.data().side || "usc");
+    }).catch(() => {});
 
     const loadMatchInfo = async () => {
       try {
@@ -193,7 +201,7 @@ export default function ChatDetailScreen() {
   const isMyMessage = (msg: Message) =>
     msg.senderId === auth.currentUser?.uid;
 
-  const sideColor = otherUser?.side === "usc" ? USC_RED : UCLA_BLUE;
+  const sideColor = schoolColor(otherUser?.side || "ucla");
 
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const mine = isMyMessage(item);
@@ -214,7 +222,7 @@ export default function ChatDetailScreen() {
             styles.messageBubble,
             mine ? styles.myBubble : styles.theirBubble,
             mine
-              ? { backgroundColor: ACCENT }
+              ? { backgroundColor: accentColor(_s) }
               : { backgroundColor: "#1E293B" },
           ]}
         >
@@ -272,7 +280,7 @@ export default function ChatDetailScreen() {
       {/* Messages */}
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={ACCENT} />
+          <ActivityIndicator size="large" color={accentColor(_s)} />
         </View>
       ) : (
         <FlatList
@@ -356,7 +364,7 @@ export default function ChatDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (_s: string) => StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0F172A" },
   header: {
     flexDirection: "row",
@@ -445,7 +453,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: ACCENT,
+    backgroundColor: accentColor(_s),
     justifyContent: "center",
     alignItems: "center",
   },

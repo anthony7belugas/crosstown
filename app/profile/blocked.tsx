@@ -11,7 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebaseConfig";
 import { unblockUser } from "../../utils/blockUtils";
-import { ACCENT, USC_RED, UCLA_BLUE } from "../../utils/colors";
+import { accentColor, schoolColor } from "../../utils/colors";
 
 
 interface BlockedUser {
@@ -26,12 +26,18 @@ export default function BlockedUsersScreen() {
   const router = useRouter();
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userSide, setUserSide] = useState<string>("usc");
   const [unblocking, setUnblocking] = useState<string | null>(null);
 
   useEffect(() => {
     if (!auth.currentUser) return;
 
     // Listen to current user's blocked list
+    // Load user side
+    getDoc(doc(db, "users", auth.currentUser.uid)).then(meSnap => {
+      if (meSnap.exists()) setUserSide(meSnap.data().side || "usc");
+    }).catch(() => {});
+
     const unsub = onSnapshot(
       doc(db, "users", auth.currentUser.uid),
       async (snapshot) => {
@@ -119,7 +125,7 @@ export default function BlockedUsersScreen() {
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={ACCENT} />
+          <ActivityIndicator size="large" color={accentColor(userSide)} />
         </View>
       ) : blockedUsers.length === 0 ? (
         <View style={styles.centered}>
@@ -137,7 +143,7 @@ export default function BlockedUsersScreen() {
           keyExtractor={(item) => item.uid}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => {
-            const sideColor = item.side === "usc" ? USC_RED : UCLA_BLUE;
+            const sideColor = schoolColor(item.side);
             return (
               <View style={styles.userRow}>
                 <View style={styles.userLeft}>

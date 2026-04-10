@@ -9,7 +9,7 @@ import { ActivityIndicator, Alert, Keyboard, Platform, Pressable, ScrollView, St
 import { KeyboardAvoidingView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db, storage } from "../../firebaseConfig";
-import { ACCENT, ACCENT_LIGHT } from "../../utils/colors";
+import { accentColor, accentBg } from "../../utils/colors";
 
 
 const MAJORS = [
@@ -51,6 +51,8 @@ export default function ProfileInfoScreen() {
 
   const handleFinish = async () => {
     Keyboard.dismiss();
+  const styles = createStyles(params.side);
+
     if (!major || !gradYear) { Alert.alert("Required", "Please select your major and graduation year."); return; }
     if (!auth.currentUser) { Alert.alert("Error", "Not authenticated."); return; }
 
@@ -82,7 +84,7 @@ export default function ProfileInfoScreen() {
       });
 
       // Navigate to main app
-      router.replace("/enableNotifications");
+      router.replace({ pathname: "/enableNotifications", params: { side: params.side } });
     } catch (error) {
       console.error("Error creating profile:", error);
       Alert.alert("Error", "Failed to create your profile. Please try again.");
@@ -158,12 +160,12 @@ export default function ProfileInfoScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (_s: string) => StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0F172A" },
   header: { paddingHorizontal: 20, paddingBottom: 10, flexDirection: "row", alignItems: "center", gap: 16 },
   backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.08)", justifyContent: "center", alignItems: "center" },
   progressBar: { flex: 1, height: 4, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 2 },
-  progressFill: { height: "100%", backgroundColor: ACCENT, borderRadius: 2 },
+  progressFill: { height: "100%", backgroundColor: accentColor(_s), borderRadius: 2 },
   scrollContent: { paddingHorizontal: 24, paddingTop: 30 },
   title: { fontSize: 28, fontWeight: "800", color: "#fff", marginBottom: 8, textAlign: "center" },
   subtitle: { fontSize: 15, color: "rgba(255,255,255,0.5)", textAlign: "center", marginBottom: 28 },
@@ -171,14 +173,14 @@ const styles = StyleSheet.create({
   optional: { fontWeight: "400", color: "rgba(255,255,255,0.3)" },
   tagsContainer: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   tag: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.12)", backgroundColor: "rgba(255,255,255,0.04)" },
-  tagSelected: { borderColor: ACCENT, backgroundColor: ACCENT_LIGHT },
+  tagSelected: { borderColor: accentColor(_s), backgroundColor: accentBg(_s, 0.12) },
   tagText: { fontSize: 14, fontWeight: "600", color: "rgba(255,255,255,0.4)" },
-  tagTextSelected: { color: ACCENT },
+  tagTextSelected: { color: accentColor(_s) },
   bioContainer: { backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", padding: 16 },
   bioInput: { fontSize: 16, color: "#fff", minHeight: 80 },
   charCount: { fontSize: 12, color: "rgba(255,255,255,0.2)", textAlign: "right", marginTop: 8 },
   footer: { paddingHorizontal: 24, paddingTop: 16 },
-  finishButton: { width: "100%", flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: ACCENT, borderRadius: 16, paddingVertical: 18, gap: 10, ...Platform.select({ ios: { shadowColor: ACCENT, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 12 }, android: { elevation: 8 } }) },
+  finishButton: { width: "100%", flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: accentColor(_s), borderRadius: 16, paddingVertical: 18, gap: 10, ...Platform.select({ ios: { shadowColor: accentColor(_s), shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 12 }, android: { elevation: 8 } }) },
   disabled: { opacity: 0.4 },
   finishText: { fontSize: 18, fontWeight: "700", color: "#1E293B" },
 });

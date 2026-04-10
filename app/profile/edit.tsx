@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db, storage } from "../../firebaseConfig";
-import { ACCENT, ACCENT_LIGHT } from "../../utils/colors";
+import { accentColor, accentBg } from "../../utils/colors";
 
 
 const MAJORS = [
@@ -41,7 +41,10 @@ export default function EditProfileScreen() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [userSide, setUserSide] = useState<string>("usc");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const styles = createStyles(userSide);
 
   useEffect(() => {
     loadProfile();
@@ -58,6 +61,7 @@ export default function EditProfileScreen() {
         setMajor(data.major || "");
         setGradYear(data.gradYear || "");
         setPhotos(data.photos || []);
+        setUserSide(data.side || "usc");
       }
     } catch (e) {
       console.error(e);
@@ -153,7 +157,7 @@ export default function EditProfileScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={ACCENT} />
+          <ActivityIndicator size="large" color={accentColor(_s)} />
         </View>
       </View>
     );
@@ -200,7 +204,7 @@ export default function EditProfileScreen() {
               ) : (
                 <View style={styles.addPhotoPlaceholder}>
                   {uploadingPhoto && i === photos.length ? (
-                    <ActivityIndicator size="small" color={ACCENT} />
+                    <ActivityIndicator size="small" color={accentColor(_s)} />
                   ) : (
                     <FontAwesome name="plus" size={20} color="rgba(255,255,255,0.2)" />
                   )}
@@ -285,7 +289,7 @@ export default function EditProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (_s: string) => StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0F172A" },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   header: {
@@ -299,7 +303,7 @@ const styles = StyleSheet.create({
   },
   cancelText: { fontSize: 16, color: "rgba(255,255,255,0.5)" },
   headerTitle: { fontSize: 18, fontWeight: "700", color: "#fff" },
-  saveText: { fontSize: 16, fontWeight: "700", color: ACCENT },
+  saveText: { fontSize: 16, fontWeight: "700", color: accentColor(_s) },
   scrollContent: { padding: 20, paddingBottom: 60 },
   sectionLabel: {
     fontSize: 13,
@@ -370,11 +374,11 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.06)",
   },
   chipSelected: {
-    backgroundColor: ACCENT_LIGHT,
-    borderColor: ACCENT,
+    backgroundColor: accentBg(_s, 0.12),
+    borderColor: accentColor(_s),
   },
   chipText: { fontSize: 14, color: "rgba(255,255,255,0.5)" },
-  chipTextSelected: { color: ACCENT, fontWeight: "600" },
+  chipTextSelected: { color: accentColor(_s), fontWeight: "600" },
   yearRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   yearChip: {
     paddingHorizontal: 20,
@@ -385,9 +389,9 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.06)",
   },
   yearChipSelected: {
-    backgroundColor: ACCENT_LIGHT,
-    borderColor: ACCENT,
+    backgroundColor: accentBg(_s, 0.12),
+    borderColor: accentColor(_s),
   },
   yearText: { fontSize: 15, fontWeight: "600", color: "rgba(255,255,255,0.4)" },
-  yearTextSelected: { color: ACCENT },
+  yearTextSelected: { color: accentColor(_s) },
 });

@@ -8,7 +8,7 @@ import { ActivityIndicator, Alert, Keyboard, Platform, Pressable, ScrollView, St
 import { KeyboardAvoidingView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../../firebaseConfig";
-import { ACCENT, USC_RED, UCLA_BLUE } from "../../utils/colors";
+import { accentColor, schoolColor } from "../../utils/colors";
 
 
 export default function EmailVerifyScreen() {
@@ -23,7 +23,7 @@ export default function EmailVerifyScreen() {
   const passwordRef = useRef<TextInput>(null);
   const confirmRef = useRef<TextInput>(null);
 
-  const sideColor = side === "usc" ? USC_RED : UCLA_BLUE;
+  const sideColor = schoolColor(side);
   const emailDomain = side === "usc" ? "@usc.edu" : "@ucla.edu";
   const sideName = side === "usc" ? "USC" : "UCLA";
   const isValidEmail = email.toLowerCase().endsWith(emailDomain);
@@ -32,6 +32,8 @@ export default function EmailVerifyScreen() {
 
   const handleSignup = async () => {
     Keyboard.dismiss();
+  const styles = createStyles(side);
+
     if (!isValidEmail) { Alert.alert("Invalid Email", `Please use your ${emailDomain} email.`); return; }
     if (password.length < 6) { Alert.alert("Weak Password", "Password must be at least 6 characters."); return; }
     if (!passwordsMatch) { Alert.alert("Password Mismatch", "Passwords don't match."); return; }
@@ -111,12 +113,12 @@ export default function EmailVerifyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (_s: string) => StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0F172A" },
   header: { paddingHorizontal: 20, paddingBottom: 10, flexDirection: "row", alignItems: "center", gap: 16 },
   backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.08)", justifyContent: "center", alignItems: "center" },
   progressBar: { flex: 1, height: 4, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 2 },
-  progressFill: { height: "100%", backgroundColor: ACCENT, borderRadius: 2 },
+  progressFill: { height: "100%", backgroundColor: accentColor(_s), borderRadius: 2 },
   scrollContent: { paddingHorizontal: 24, paddingTop: 20 },
   titleSection: { alignItems: "center", marginBottom: 32 },
   sideBadge: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 12, marginBottom: 16 },
@@ -130,7 +132,7 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 16, color: "#fff" },
   errorText: { fontSize: 13, color: "#EF4444", marginTop: 6, marginLeft: 4 },
   footer: { paddingHorizontal: 24, paddingTop: 16 },
-  continueButton: { width: "100%", flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: ACCENT, borderRadius: 16, paddingVertical: 18, gap: 10, ...Platform.select({ ios: { shadowColor: ACCENT, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 12 }, android: { elevation: 8 } }) },
+  continueButton: { width: "100%", flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: accentColor(_s), borderRadius: 16, paddingVertical: 18, gap: 10, ...Platform.select({ ios: { shadowColor: accentColor(_s), shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 12 }, android: { elevation: 8 } }) },
   disabled: { opacity: 0.4 },
   continueText: { fontSize: 18, fontWeight: "700", color: "#1E293B" },
 });

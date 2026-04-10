@@ -2,17 +2,18 @@
 // Shown after onboarding completes — asks user to enable push notifications
 // Similar to Besties enableNotifications.tsx
 import { FontAwesome } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   Animated, Pressable, StyleSheet, Text, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { registerForPushNotifications } from "../utils/pushNotifications";
-import { ACCENT, ACCENT_FAINT, ACCENT_GLOW } from "../utils/colors";
+import { accentColor, accentBg } from "../utils/colors";
 
 
 export default function EnableNotificationsScreen() {
+  const { side } = useLocalSearchParams<{ side: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -52,6 +53,8 @@ export default function EnableNotificationsScreen() {
     router.replace("/(tabs)/swipe");
   };
 
+  const styles = createStyles(side || "usc");
+
   return (
     <View
       style={[
@@ -63,7 +66,7 @@ export default function EnableNotificationsScreen() {
         <Animated.View
           style={[styles.iconCircle, { transform: [{ scale: bellScale }] }]}
         >
-          <FontAwesome name="bell" size={48} color={ACCENT} />
+          <FontAwesome name="bell" size={48} color={accentColor(_s)} />
         </Animated.View>
 
         <Text style={styles.title}>Don't Miss a Match</Text>
@@ -112,7 +115,7 @@ export default function EnableNotificationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (_s: string) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0F172A",
@@ -124,9 +127,9 @@ const styles = StyleSheet.create({
     width: 110,
     height: 110,
     borderRadius: 55,
-    backgroundColor: ACCENT_FAINT,
+    backgroundColor: accentBg(_s, 0.08),
     borderWidth: 2,
-    borderColor: ACCENT_GLOW,
+    borderColor: accentBg(_s, 0.2),
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 32,
@@ -169,7 +172,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: ACCENT,
+    backgroundColor: accentColor(_s),
     borderRadius: 16,
     paddingVertical: 18,
     gap: 10,

@@ -18,7 +18,7 @@ import { ReportModal } from "../../components/ReportModal";
 import { auth, db } from "../../firebaseConfig";
 import { blockUser, reportUser, ReportReason } from "../../utils/blockUtils";
 import { DAILY_SWIPE_LIMIT } from "../../utils/swipeLimits";
-import { ACCENT, USC_RED, UCLA_BLUE, ACCENT_SUBTLE, ACCENT_GLOW } from "../../utils/colors";
+import { accentColor, accentBg, schoolColor } from "../../utils/colors";
 
 const { width, height } = Dimensions.get("window");
 const SWIPE_THRESHOLD = width * 0.25;
@@ -56,6 +56,8 @@ export default function SwipeScreen() {
   const position = useRef(new Animated.ValueXY()).current;
   const matchScale = useRef(new Animated.Value(0)).current;
   const [currentUserData, setCurrentUserData] = useState<any>(null);
+
+  const styles = createStyles(currentUserData?.side || "usc");
 
   useEffect(() => { loadData(); }, []);
 
@@ -183,16 +185,16 @@ export default function SwipeScreen() {
 
   const currentProfile = profiles[currentIndex];
 
-  if (loading) return (<View style={[styles.container, { paddingTop: insets.top }]}><View style={styles.header}><Text style={styles.headerTitle}>CrossTown</Text></View><View style={styles.centered}><ActivityIndicator size="large" color={ACCENT} /></View></View>);
-  if (swipesRemaining <= 0) return (<View style={[styles.container, { paddingTop: insets.top }]}><View style={styles.header}><Text style={styles.headerTitle}>CrossTown</Text></View><View style={styles.centered}><View style={styles.emptyIcon}><FontAwesome name="clock-o" size={40} color={ACCENT} /></View><Text style={styles.emptyTitle}>Daily Limit Reached</Text><Text style={styles.emptySubtitle}>You've used all 30 swipes today.{"\n"}Come back tomorrow!</Text></View></View>);
-  if (!currentProfile) return (<View style={[styles.container, { paddingTop: insets.top }]}><View style={styles.header}><Text style={styles.headerTitle}>CrossTown</Text></View><View style={styles.centered}><View style={styles.emptyIcon}><FontAwesome name="search" size={40} color={ACCENT} /></View><Text style={styles.emptyTitle}>No More Profiles</Text><Text style={styles.emptySubtitle}>You've seen everyone for now.{"\n"}Check back later!</Text><Pressable style={styles.refreshBtn} onPress={loadData}><Text style={styles.refreshText}>Refresh</Text></Pressable></View></View>);
+  if (loading) return (<View style={[styles.container, { paddingTop: insets.top }]}><View style={styles.header}><Text style={styles.headerTitle}>CrossTown</Text></View><View style={styles.centered}><ActivityIndicator size="large" color={accentColor(_s)} /></View></View>);
+  if (swipesRemaining <= 0) return (<View style={[styles.container, { paddingTop: insets.top }]}><View style={styles.header}><Text style={styles.headerTitle}>CrossTown</Text></View><View style={styles.centered}><View style={styles.emptyIcon}><FontAwesome name="clock-o" size={40} color={accentColor(_s)} /></View><Text style={styles.emptyTitle}>Daily Limit Reached</Text><Text style={styles.emptySubtitle}>You've used all 30 swipes today.{"\n"}Come back tomorrow!</Text></View></View>);
+  if (!currentProfile) return (<View style={[styles.container, { paddingTop: insets.top }]}><View style={styles.header}><Text style={styles.headerTitle}>CrossTown</Text></View><View style={styles.centered}><View style={styles.emptyIcon}><FontAwesome name="search" size={40} color={accentColor(_s)} /></View><Text style={styles.emptyTitle}>No More Profiles</Text><Text style={styles.emptySubtitle}>You've seen everyone for now.{"\n"}Check back later!</Text><Pressable style={styles.refreshBtn} onPress={loadData}><Text style={styles.refreshText}>Refresh</Text></Pressable></View></View>);
 
-  const sideColor = currentProfile.side === "usc" ? USC_RED : UCLA_BLUE;
+  const sideColor = schoolColor(currentProfile.side);
   const sideName = currentProfile.side === "usc" ? "USC" : "UCLA";
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}><Text style={styles.headerTitle}>CrossTown</Text><View style={styles.swipeCounter}><FontAwesome name="heart" size={12} color={ACCENT} /><Text style={styles.swipeCountText}>{swipesRemaining}</Text></View></View>
+      <View style={styles.header}><Text style={styles.headerTitle}>CrossTown</Text><View style={styles.swipeCounter}><FontAwesome name="heart" size={12} color={accentColor(_s)} /><Text style={styles.swipeCountText}>{swipesRemaining}</Text></View></View>
       <View style={styles.cardContainer}>
         <Animated.View {...panResponder.panHandlers} style={[styles.card, { transform: [{ translateX: position.x }, { translateY: position.y }, { rotate }] }]}>
           <Image source={{ uri: currentProfile.photos[currentPhotoIndex] || "" }} style={styles.cardImage} />
@@ -229,18 +231,18 @@ export default function SwipeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (_s: string) => StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0F172A" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 12 },
   headerTitle: { fontSize: 28, fontWeight: "800", color: "#fff" },
-  swipeCounter: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: ACCENT_SUBTLE, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  swipeCountText: { fontSize: 14, fontWeight: "700", color: ACCENT },
+  swipeCounter: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: accentBg(_s, 0.1), paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  swipeCountText: { fontSize: 14, fontWeight: "700", color: accentColor(_s) },
   centered: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 40 },
-  emptyIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: ACCENT_SUBTLE, justifyContent: "center", alignItems: "center", marginBottom: 20 },
+  emptyIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: accentBg(_s, 0.1), justifyContent: "center", alignItems: "center", marginBottom: 20 },
   emptyTitle: { fontSize: 22, fontWeight: "700", color: "#fff", marginBottom: 8 },
   emptySubtitle: { fontSize: 15, color: "rgba(255,255,255,0.4)", textAlign: "center", lineHeight: 22 },
-  refreshBtn: { marginTop: 24, paddingVertical: 12, paddingHorizontal: 28, backgroundColor: ACCENT_SUBTLE, borderRadius: 12, borderWidth: 1, borderColor: ACCENT_GLOW },
-  refreshText: { fontSize: 16, fontWeight: "600", color: ACCENT },
+  refreshBtn: { marginTop: 24, paddingVertical: 12, paddingHorizontal: 28, backgroundColor: accentBg(_s, 0.1), borderRadius: 12, borderWidth: 1, borderColor: accentBg(_s, 0.2) },
+  refreshText: { fontSize: 16, fontWeight: "600", color: accentColor(_s) },
   cardContainer: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
   card: { width: width - 24, height: height * 0.58, borderRadius: 20, overflow: "hidden", backgroundColor: "#1E293B" },
   cardImage: { width: "100%", height: "100%", backgroundColor: "#334155" },
@@ -265,11 +267,11 @@ const styles = StyleSheet.create({
   passBtn: { backgroundColor: "rgba(239,68,68,0.12)", borderWidth: 2, borderColor: "rgba(239,68,68,0.3)" },
   likeBtn: { backgroundColor: "rgba(16,185,129,0.12)", borderWidth: 2, borderColor: "rgba(16,185,129,0.3)" },
   matchOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.8)", justifyContent: "center", alignItems: "center", padding: 32 },
-  matchContent: { backgroundColor: "#1E293B", borderRadius: 24, padding: 32, alignItems: "center", width: "100%", borderWidth: 2, borderColor: ACCENT },
+  matchContent: { backgroundColor: "#1E293B", borderRadius: 24, padding: 32, alignItems: "center", width: "100%", borderWidth: 2, borderColor: accentColor(_s) },
   matchEmoji: { fontSize: 56, marginBottom: 16 },
-  matchTitle: { fontSize: 32, fontWeight: "900", color: ACCENT, marginBottom: 8 },
+  matchTitle: { fontSize: 32, fontWeight: "900", color: accentColor(_s), marginBottom: 8 },
   matchSubtitle: { fontSize: 16, color: "rgba(255,255,255,0.6)", textAlign: "center", lineHeight: 24, marginBottom: 24 },
-  matchChatBtn: { width: "100%", backgroundColor: ACCENT, paddingVertical: 16, borderRadius: 14, alignItems: "center", marginBottom: 12 },
+  matchChatBtn: { width: "100%", backgroundColor: accentColor(_s), paddingVertical: 16, borderRadius: 14, alignItems: "center", marginBottom: 12 },
   matchChatText: { fontSize: 17, fontWeight: "700", color: "#1E293B" },
   matchKeepBtn: { paddingVertical: 12 },
   matchKeepText: { fontSize: 16, fontWeight: "600", color: "rgba(255,255,255,0.4)" },

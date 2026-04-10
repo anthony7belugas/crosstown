@@ -13,7 +13,10 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ACCENT, USC_RED, UCLA_BLUE, ACCENT_LIGHT, ACCENT_MEDIUM, ACCENT_GLOW } from "../utils/colors";
+import { USC_RED, UCLA_BLUE, NEUTRAL_ACCENT } from "../utils/colors";
+
+// CrossTown brand colors
+
 export default function WelcomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -186,7 +189,7 @@ export default function WelcomeScreen() {
               },
             ]}
           >
-            <FontAwesome name="lock" size={12} color={ACCENT} />
+            <FontAwesome name="lock" size={12} color={NEUTRAL_ACCENT} />
             <Text style={styles.badgeText}>USC & UCLA Students Only</Text>
           </Animated.View>
         </View>
@@ -270,7 +273,7 @@ const styles = StyleSheet.create({
   diagonal: {
     width: 2,
     height: "120%",
-    backgroundColor: ACCENT_MEDIUM,
+    backgroundColor: "rgba(226, 232, 240, 0.15)",
     transform: [{ rotate: "15deg" }],
   },
   content: {
@@ -288,15 +291,15 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: ACCENT_LIGHT,
+    backgroundColor: "rgba(226, 232, 240, 0.12)",
     borderWidth: 2,
-    borderColor: ACCENT,
+    borderColor: NEUTRAL_ACCENT,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 24,
     ...Platform.select({
       ios: {
-        shadowColor: ACCENT,
+        shadowColor: NEUTRAL_ACCENT,
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.4,
         shadowRadius: 20,
@@ -306,7 +309,7 @@ const styles = StyleSheet.create({
   vsText: {
     fontSize: 36,
     fontWeight: "900",
-    color: ACCENT,
+    color: NEUTRAL_ACCENT,
     letterSpacing: 4,
   },
   title: {
@@ -319,7 +322,7 @@ const styles = StyleSheet.create({
   tagline: {
     fontSize: 20,
     fontWeight: "600",
-    color: ACCENT,
+    color: NEUTRAL_ACCENT,
     letterSpacing: 2,
     textTransform: "uppercase",
     marginBottom: 24,
@@ -332,7 +335,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: ACCENT_GLOW,
+    borderColor: "rgba(226, 232, 240, 0.2)",
     gap: 8,
   },
   badgeText: {
@@ -350,13 +353,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: ACCENT,
+    backgroundColor: NEUTRAL_ACCENT,
     borderRadius: 16,
     paddingVertical: 18,
     gap: 10,
     ...Platform.select({
       ios: {
-        shadowColor: ACCENT,
+        shadowColor: NEUTRAL_ACCENT,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.35,
         shadowRadius: 12,

@@ -66,7 +66,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
         name: "CrossTown",
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor: "#FFD100",
+        lightColor: "#E2E8F0",
       });
     }
 

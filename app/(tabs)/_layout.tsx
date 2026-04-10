@@ -1,19 +1,34 @@
 // app/(tabs)/_layout.tsx
 import { FontAwesome } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { Platform, StyleSheet } from "react-native";
-import { ACCENT } from "../../utils/colors";
-
+import { doc, getDoc } from "firebase/firestore";
+import React, { useEffect, useState } from "react";
+import { Platform } from "react-native";
+import { auth, db } from "../../firebaseConfig";
+import { accentColor, TEXT_SECONDARY, BG_PRIMARY } from "../../utils/colors";
 
 export default function TabsLayout() {
+  const [side, setSide] = useState<string>("usc");
+
+  useEffect(() => {
+    const loadSide = async () => {
+      if (!auth.currentUser) return;
+      try {
+        const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
+        if (snap.exists()) setSide(snap.data().side || "usc");
+      } catch {}
+    };
+    loadSide();
+  }, []);
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: ACCENT,
-        tabBarInactiveTintColor: "rgba(255,255,255,0.4)",
+        tabBarActiveTintColor: accentColor(side),
+        tabBarInactiveTintColor: TEXT_SECONDARY,
         tabBarStyle: {
-          backgroundColor: "#0F172A",
+          backgroundColor: BG_PRIMARY,
           borderTopWidth: 1,
           borderTopColor: "rgba(255,255,255,0.08)",
           paddingTop: 5,

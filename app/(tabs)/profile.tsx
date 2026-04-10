@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebaseConfig";
-import { ACCENT, USC_RED, UCLA_BLUE, ACCENT_LIGHT } from "../../utils/colors";
+import { accentColor, accentBg, schoolColor } from "../../utils/colors";
 
 
 interface UserData {
@@ -36,6 +36,8 @@ export default function ProfileScreen() {
   const [matchesCount, setMatchesCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+
+  const styles = createStyles(userData?.side || "usc");
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -103,14 +105,14 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const sideColor = userData?.side === "usc" ? USC_RED : UCLA_BLUE;
+  const sideColor = schoolColor(userData?.side || "usc");
   const sideName = userData?.side === "usc" ? "USC" : "UCLA";
 
   if (loading) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={ACCENT} />
+          <ActivityIndicator size="large" color={accentColor(_s)} />
         </View>
       </View>
     );
@@ -135,7 +137,7 @@ export default function ProfileScreen() {
         {/* Likes counter card */}
         <Pressable style={styles.likesCard}>
           <View style={styles.likesLeft}>
-            <FontAwesome name="heart" size={22} color={ACCENT} />
+            <FontAwesome name="heart" size={22} color={accentColor(_s)} />
             <View>
               <Text style={styles.likesCount}>{likesCount}</Text>
               <Text style={styles.likesLabel}>rivals liked you</Text>
@@ -231,7 +233,7 @@ export default function ProfileScreen() {
             style={styles.editButton}
             onPress={() => router.push("/profile/edit" as any)}
           >
-            <FontAwesome name="pencil" size={14} color={ACCENT} />
+            <FontAwesome name="pencil" size={14} color={accentColor(_s)} />
             <Text style={styles.editButtonText}>Edit Profile</Text>
           </Pressable>
         </View>
@@ -261,7 +263,7 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (_s: string) => StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0F172A" },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   header: {
@@ -286,15 +288,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "rgba(245, 158, 11, 0.06)",
+    backgroundColor: accentBg(_s, 0.06),
     borderWidth: 1,
-    borderColor: ACCENT_LIGHT,
+    borderColor: accentBg(_s, 0.12),
     borderRadius: 16,
     padding: 18,
     marginBottom: 16,
   },
   likesLeft: { flexDirection: "row", alignItems: "center", gap: 14 },
-  likesCount: { fontSize: 28, fontWeight: "900", color: ACCENT },
+  likesCount: { fontSize: 28, fontWeight: "900", color: accentColor(_s) },
   likesLabel: { fontSize: 13, color: "rgba(255,255,255,0.4)", marginTop: -2 },
   blurredGrid: { flexDirection: "row", gap: 6 },
   blurredThumb: {
@@ -396,7 +398,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "rgba(255,255,255,0.06)",
   },
-  editButtonText: { fontSize: 15, fontWeight: "600", color: ACCENT },
+  editButtonText: { fontSize: 15, fontWeight: "600", color: accentColor(_s) },
 
   // Actions
   actionsSection: {

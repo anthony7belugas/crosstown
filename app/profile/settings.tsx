@@ -4,7 +4,7 @@ import { FontAwesome } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { deleteUser, signOut } from "firebase/auth";
 import {
-  collection, deleteDoc, doc, getDocs, query, where,
+  collection, deleteDoc, doc, getDoc, getDocs, query, where,
 } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import {
@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebaseConfig";
-import { ACCENT, ACCENT_TRACK } from "../../utils/colors";
+import { accentColor, accentBg } from "../../utils/colors";
 
 
 interface BlockedUser {
@@ -28,9 +28,19 @@ export default function SettingsScreen() {
   const [notifLikes, setNotifLikes] = useState(true);
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [deleting, setDeleting] = useState(false);
+  const [userSide, setUserSide] = useState<string>("usc");
 
   useEffect(() => {
     loadBlockedUsers();
+    // Load user side for accent colors
+    const loadSide = async () => {
+      if (!auth.currentUser) return;
+      try {
+        const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
+        if (snap.exists()) setUserSide(snap.data().side || "usc");
+      } catch {}
+    };
+    loadSide();
   }, []);
 
   const loadBlockedUsers = async () => {
@@ -129,40 +139,40 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <FontAwesome name="fire" size={16} color={ACCENT} />
+              <FontAwesome name="fire" size={16} color={accentColor(userSide)} />
               <Text style={styles.settingText}>New matches</Text>
             </View>
             <Switch
               value={notifMatches}
               onValueChange={setNotifMatches}
-              trackColor={{ false: "#334155", true: ACCENT_TRACK }}
-              thumbColor={notifMatches ? ACCENT : "#94A3B8"}
+              trackColor={{ false: "#334155", true: accentBg(userSide, 0.3) }}
+              thumbColor={notifMatches ? accentColor(userSide) : "#94A3B8"}
             />
           </View>
           <View style={styles.divider} />
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <FontAwesome name="comment" size={16} color={ACCENT} />
+              <FontAwesome name="comment" size={16} color={accentColor(userSide)} />
               <Text style={styles.settingText}>Messages</Text>
             </View>
             <Switch
               value={notifMessages}
               onValueChange={setNotifMessages}
-              trackColor={{ false: "#334155", true: ACCENT_TRACK }}
-              thumbColor={notifMessages ? ACCENT : "#94A3B8"}
+              trackColor={{ false: "#334155", true: accentBg(userSide, 0.3) }}
+              thumbColor={notifMessages ? accentColor(userSide) : "#94A3B8"}
             />
           </View>
           <View style={styles.divider} />
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <FontAwesome name="heart" size={16} color={ACCENT} />
+              <FontAwesome name="heart" size={16} color={accentColor(userSide)} />
               <Text style={styles.settingText}>Someone liked you</Text>
             </View>
             <Switch
               value={notifLikes}
               onValueChange={setNotifLikes}
-              trackColor={{ false: "#334155", true: ACCENT_TRACK }}
-              thumbColor={notifLikes ? ACCENT : "#94A3B8"}
+              trackColor={{ false: "#334155", true: accentBg(userSide, 0.3) }}
+              thumbColor={notifLikes ? accentColor(userSide) : "#94A3B8"}
             />
           </View>
         </View>

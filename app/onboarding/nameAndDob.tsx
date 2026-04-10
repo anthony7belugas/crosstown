@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { Alert, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ACCENT } from "../../utils/colors";
+import { accentColor } from "../../utils/colors";
 
 
 export default function NameAndDobScreen() {
@@ -19,6 +19,8 @@ export default function NameAndDobScreen() {
 
   const getAge = (): number | null => {
     const m = parseInt(month); const d = parseInt(day); const y = parseInt(year);
+  const styles = createStyles(side);
+
     if (!m || !d || !y || m < 1 || m > 12 || d < 1 || d > 31 || y < 1900 || y > 2010) return null;
     const today = new Date();
     const birth = new Date(y, m - 1, d);
@@ -93,12 +95,12 @@ export default function NameAndDobScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (_s: string) => StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0F172A" },
   header: { paddingHorizontal: 20, paddingBottom: 10, flexDirection: "row", alignItems: "center", gap: 16 },
   backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.08)", justifyContent: "center", alignItems: "center" },
   progressBar: { flex: 1, height: 4, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 2 },
-  progressFill: { height: "100%", backgroundColor: ACCENT, borderRadius: 2 },
+  progressFill: { height: "100%", backgroundColor: accentColor(_s), borderRadius: 2 },
   scrollContent: { paddingHorizontal: 24, paddingTop: 30 },
   title: { fontSize: 28, fontWeight: "800", color: "#fff", marginBottom: 8, textAlign: "center" },
   subtitle: { fontSize: 15, color: "rgba(255,255,255,0.5)", textAlign: "center", marginBottom: 32 },
@@ -113,7 +115,7 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 13, color: "#EF4444", marginTop: 8, marginLeft: 4 },
   ageText: { fontSize: 13, color: "#10B981", marginTop: 8, marginLeft: 4 },
   footer: { paddingHorizontal: 24, paddingTop: 16 },
-  continueButton: { width: "100%", flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: ACCENT, borderRadius: 16, paddingVertical: 18, gap: 10, ...Platform.select({ ios: { shadowColor: ACCENT, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 12 }, android: { elevation: 8 } }) },
+  continueButton: { width: "100%", flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: accentColor(_s), borderRadius: 16, paddingVertical: 18, gap: 10, ...Platform.select({ ios: { shadowColor: accentColor(_s), shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 12 }, android: { elevation: 8 } }) },
   disabled: { opacity: 0.4 },
   continueText: { fontSize: 18, fontWeight: "700", color: "#1E293B" },
 });
