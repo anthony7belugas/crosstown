@@ -2,7 +2,8 @@
 // Root layout with auth state routing — adapted from Besties
 import { Stack, useRouter } from "expo-router";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import * as Notifications from "expo-notifications";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -62,10 +63,30 @@ export default function RootLayout() {
         const userDoc = await getDoc(doc(db, "users", user.uid));
         const userData = userDoc.exists() ? userDoc.data() : null;
 
-        if (userData?.profileCompleted === true) {
-          // Profile complete → main app
+        // Check if account is deleted or suspended
+        if (userData?.accountStatus === "deleted" || userData?.isSuspended) {
+          await auth.signOut();
           setHasNavigated(true);
-          router.replace("/(tabs)/swipe");
+          router.replace("/");
+          return;
+        }
+
+        if (userData?.profileCompleted === true) {
+          // Check notification prompt before routing to main app
+          if (!userData.notificationPromptShown) {
+            const { status } = await Notifications.getPermissionsAsync();
+            if (status === "granted") {
+              await updateDoc(doc(db, "users", user.uid), { notificationPromptShown: true });
+              setHasNavigated(true);
+              router.replace("/(tabs)/swipe");
+            } else {
+              setHasNavigated(true);
+              router.replace("/enableNotifications");
+            }
+          } else {
+            setHasNavigated(true);
+            router.replace("/(tabs)/swipe");
+          }
         } else {
           // Profile not complete → continue onboarding
           const email = user.email || "";
