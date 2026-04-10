@@ -25,13 +25,14 @@ export default function EmailVerifyScreen() {
   const sideColor = schoolColor(side);
   const emailDomain = side === "usc" ? "@usc.edu" : "@ucla.edu";
   const sideName = side === "usc" ? "USC" : "UCLA";
-  const isValidEmail = email.toLowerCase().endsWith(emailDomain);
+  // const isValidEmail = email.toLowerCase().endsWith(emailDomain); // TEMP: disabled for testing
+  const isValidEmail = email.includes("@") && email.length > 3; // TEMP: accept any email for testing
   const isValid = isValidEmail && password.length >= 6;
 
   const handleSignup = async () => {
     Keyboard.dismiss();
 
-    if (!isValidEmail) { Alert.alert("Invalid Email", `Please use your ${emailDomain} email.`); return; }
+    // if (!isValidEmail) { Alert.alert("Invalid Email", `Please use your ${emailDomain} email.`); return; } // TEMP: disabled for testing
     if (password.length < 6) { Alert.alert("Weak Password", "Password must be at least 6 characters."); return; }
 
     setLoading(true);
