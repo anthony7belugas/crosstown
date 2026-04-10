@@ -66,7 +66,7 @@ export default function EnableNotificationsScreen() {
         <Animated.View
           style={[styles.iconCircle, { transform: [{ scale: bellScale }] }]}
         >
-          <FontAwesome name="bell" size={48} color={accentColor(_s)} />
+          <FontAwesome name="bell" size={48} color={accentColor(side)} />
         </Animated.View>
 
         <Text style={styles.title}>Don't Miss a Match</Text>

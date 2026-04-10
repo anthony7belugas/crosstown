@@ -18,6 +18,7 @@ export default function PhotosScreen() {
   const insets = useSafeAreaInsets();
   const [photos, setPhotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const styles = createStyles(params.side as string);
 
   const compressImage = async (uri: string): Promise<string> => {
     try {
@@ -32,7 +33,6 @@ export default function PhotosScreen() {
     if (status !== "granted") { Alert.alert("Permission Required", "Please allow photo access."); return; }
 
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: "images", allowsEditing: true, aspect: [3, 4], quality: 0.8 });
-  const styles = createStyles(params.side as string);
 
     if (!result.canceled && result.assets[0]) {
       setUploading(true);

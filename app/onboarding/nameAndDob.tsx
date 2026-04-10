@@ -17,9 +17,10 @@ export default function NameAndDobScreen() {
   const [day, setDay] = useState("");
   const [year, setYear] = useState("");
 
+  const styles = createStyles(side);
+
   const getAge = (): number | null => {
     const m = parseInt(month); const d = parseInt(day); const y = parseInt(year);
-  const styles = createStyles(side);
 
     if (!m || !d || !y || m < 1 || m > 12 || d < 1 || d > 31 || y < 1900 || y > 2010) return null;
     const today = new Date();

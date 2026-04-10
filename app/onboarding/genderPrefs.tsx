@@ -18,10 +18,9 @@ export default function GenderPrefsScreen() {
   const [showMe, setShowMe] = useState<ShowMe | null>(null);
 
   const isValid = gender !== null && showMe !== null;
-
-  const handleContinue = () => {
   const styles = createStyles(params.side as string);
 
+  const handleContinue = () => {
     if (!isValid) return;
     router.push({
       pathname: "/onboarding/photos",
@@ -31,7 +30,7 @@ export default function GenderPrefsScreen() {
 
   const GenderButton = ({ value, label, icon }: { value: Gender; label: string; icon: string }) => (
     <Pressable style={[styles.optionButton, gender === value && styles.optionSelected]} onPress={() => setGender(value)}>
-      <FontAwesome name={icon as any} size={22} color={gender === value ? accentColor(_s) : "rgba(255,255,255,0.4)"} />
+      <FontAwesome name={icon as any} size={22} color={gender === value ? accentColor(params.side as string) : "rgba(255,255,255,0.4)"} />
       <Text style={[styles.optionText, gender === value && styles.optionTextSelected]}>{label}</Text>
       {gender === value && <View style={styles.checkDot}><FontAwesome name="check" size={12} color="#1E293B" /></View>}
     </Pressable>

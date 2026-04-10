@@ -46,17 +46,28 @@
       margin: 0 auto 16px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .verify-btn {
+      display: inline-block;
+      margin-top: 24px;
+      padding: 14px 36px;
+      background: #FBBF24;
+      color: #1E293B;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .verify-btn:hover { opacity: 0.9; }
+    .verify-btn:active { opacity: 0.7; }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="logo"><span class="cross">CROSS</span><span class="town">TOWN</span></div>
     <div class="tagline">Date Your Rival</div>
-    <div id="content">
-      <div class="spinner"></div>
-      <div class="title">Verifying your email...</div>
-      <div class="message">Just a moment.</div>
-    </div>
+    <div id="content"></div>
   </div>
 
   <script type="module">
@@ -72,17 +83,36 @@
     const auth = getAuth(app);
     const content = document.getElementById("content");
 
-    // Parse URL params
     const params = new URLSearchParams(window.location.search);
     const mode = params.get("mode");
     const oobCode = params.get("oobCode");
 
-    // Matches Besties pattern exactly: define functions first, call at bottom
-    async function handleVerification() {
+    // Show button instead of auto-verifying.
+    // This prevents email security scanners (Proofpoint, Gmail Safe Browsing)
+    // from prefetching the link and consuming the oobCode before the user clicks.
+    function showVerifyButton() {
       if (mode !== "verifyEmail" || !oobCode) {
         showError();
         return;
       }
+
+      content.innerHTML = `
+        <div class="icon">\u2709\uFE0F</div>
+        <div class="title">Confirm your email</div>
+        <div class="message">Tap the button below to finish verifying your student email.</div>
+        <button class="verify-btn" id="verifyBtn">Verify My Email</button>
+      `;
+
+      document.getElementById("verifyBtn").addEventListener("click", handleVerification);
+    }
+
+    async function handleVerification() {
+      // Show loading state
+      content.innerHTML = `
+        <div class="spinner"></div>
+        <div class="title">Verifying your email...</div>
+        <div class="message">Just a moment.</div>
+      `;
 
       try {
         await applyActionCode(auth, oobCode);
@@ -121,7 +151,8 @@
       `;
     }
 
-    handleVerification();
+    // Show the button — do NOT auto-verify on page load
+    showVerifyButton();
   </script>
 </body>
 </html>

@@ -34,6 +34,7 @@ export default function ProfileInfoScreen() {
   const [loading, setLoading] = useState(false);
 
   const isValid = major !== null && gradYear !== null;
+  const styles = createStyles(params.side);
 
   const uploadPhotos = async (uris: string[]): Promise<string[]> => {
     const urls: string[] = [];
@@ -51,8 +52,6 @@ export default function ProfileInfoScreen() {
 
   const handleFinish = async () => {
     Keyboard.dismiss();
-  const styles = createStyles(params.side);
-
     if (!major || !gradYear) { Alert.alert("Required", "Please select your major and graduation year."); return; }
     if (!auth.currentUser) { Alert.alert("Error", "Not authenticated."); return; }
 
