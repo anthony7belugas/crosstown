@@ -1,6 +1,6 @@
 // app/(tabs)/_layout.tsx
-// Tab bar: Duels | Rivals (badge) | Scoreboard | Profile
-import { FontAwesome } from "@expo/vector-icons";
+// Tab bar: Duels (⚔) | Rivals (💬 + badge) | Scoreboard (🏆) | Profile (👤)
+import { FontAwesome, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import {
   collection, doc, getDoc, onSnapshot, query, where,
@@ -25,21 +25,15 @@ export default function TabsLayout() {
     loadSide();
   }, []);
 
-  // Real-time listener for incoming challenge count (badge on Rivals tab)
+  // Real-time listener for incoming challenges → badge on Rivals tab
   useEffect(() => {
     if (!auth.currentUser) return;
-    const uid = auth.currentUser.uid;
-
     const q = query(
       collection(db, "challenges"),
-      where("toUserId", "==", uid),
+      where("toUserId", "==", auth.currentUser.uid),
       where("status", "==", "pending")
     );
-
-    const unsub = onSnapshot(q, (snap) => {
-      setIncomingCount(snap.size);
-    });
-
+    const unsub = onSnapshot(q, (snap) => setIncomingCount(snap.size));
     return () => unsub();
   }, []);
 
@@ -68,23 +62,25 @@ export default function TabsLayout() {
         },
       }}
     >
+      {/* Tab 1 — Duels ⚔ */}
       <Tabs.Screen
         name="duels"
         options={{
           title: "Duels",
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome name="bolt" size={size} color={color} />
+            <MaterialCommunityIcons name="sword-cross" size={size} color={color} />
           ),
         }}
       />
 
+      {/* Tab 2 — Rivals 💬 (badge = incoming challenges only) */}
       <Tabs.Screen
         name="rivals"
         options={{
           title: "Rivals",
           tabBarIcon: ({ color, size }) => (
             <View>
-              <FontAwesome name="comment" size={size} color={color} />
+              <FontAwesome name="comments" size={size - 2} color={color} />
               {incomingCount > 0 && (
                 <View
                   style={{
@@ -112,6 +108,7 @@ export default function TabsLayout() {
         }}
       />
 
+      {/* Tab 3 — Scoreboard 🏆 */}
       <Tabs.Screen
         name="scoreboard"
         options={{
@@ -122,6 +119,7 @@ export default function TabsLayout() {
         }}
       />
 
+      {/* Tab 4 — Profile 👤 (never shows badge) */}
       <Tabs.Screen
         name="profile"
         options={{

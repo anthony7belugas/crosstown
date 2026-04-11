@@ -1,7 +1,7 @@
 // app/(tabs)/duels.tsx
-// Duels — browse rival profiles and send challenges
-// Swiping right or tapping Challenge sends a challenge to the rival.
-// The rival sees it in the Rivals tab and can Accept or Decline.
+// Duels — card stack with ⚔ Challenge button on card, swipe left to pass
+// Matches the spec: "the Challenge button is full-width, bold, colored in
+// the current user's school color, and reads '⚔ Challenge'."
 import { FontAwesome } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import {
@@ -10,7 +10,7 @@ import {
 } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator, Animated, Dimensions, Image, Modal,
+  ActivityIndicator, Animated, Dimensions, Image,
   PanResponder, Pressable, StyleSheet, Text, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,7 +20,7 @@ import { ReportModal } from "../../components/ReportModal";
 import { auth, db } from "../../firebaseConfig";
 import { blockUser, reportUser, ReportReason } from "../../utils/blockUtils";
 import { DAILY_SWIPE_LIMIT } from "../../utils/swipeLimits";
-import { accentColor, accentBg, schoolColor, rivalColor } from "../../utils/colors";
+import { accentColor, accentBg, schoolColor } from "../../utils/colors";
 
 const { width, height } = Dimensions.get("window");
 const SWIPE_THRESHOLD = width * 0.25;
@@ -75,22 +75,19 @@ export default function DuelsScreen() {
       if (userData.dailySwipeDate === today) swipeCount = userData.dailySwipeCount || 0;
       setChallengesRemaining(Math.max(0, DAILY_SWIPE_LIMIT - swipeCount));
 
-      // Get already-challenged and passed IDs
+      // Build exclusion set: already challenged, challenged by, matched, passed today
       const excludedIds = new Set<string>();
 
-      // Challenges sent by me (any status — don't re-challenge)
       const challengesSent = await getDocs(
         query(collection(db, "challenges"), where("fromUserId", "==", auth.currentUser.uid))
       );
       challengesSent.docs.forEach((d) => excludedIds.add(d.data().toUserId));
 
-      // Challenges sent TO me (they challenged me — I'll see them in Rivals)
       const challengesReceived = await getDocs(
         query(collection(db, "challenges"), where("toUserId", "==", auth.currentUser.uid))
       );
       challengesReceived.docs.forEach((d) => excludedIds.add(d.data().fromUserId));
 
-      // Existing matches
       const matchesSnap = await getDocs(
         query(collection(db, "matches"), where("users", "array-contains", auth.currentUser.uid))
       );
@@ -98,24 +95,20 @@ export default function DuelsScreen() {
         d.data().users.forEach((uid: string) => excludedIds.add(uid));
       });
 
-      // Today's passes
       const passesSnap = await getDocs(
         query(collection(db, "passes"), where("fromUserId", "==", auth.currentUser.uid), where("date", "==", today))
       );
       passesSnap.docs.forEach((d) => excludedIds.add(d.data().toUserId));
 
-      const blockedUsers: string[] = userData.blockedUsers || [];
-      const blockedByUsers: string[] = userData.blockedByUsers || [];
-      blockedUsers.forEach((id) => excludedIds.add(id));
-      blockedByUsers.forEach((id) => excludedIds.add(id));
+      (userData.blockedUsers || []).forEach((id: string) => excludedIds.add(id));
+      (userData.blockedByUsers || []).forEach((id: string) => excludedIds.add(id));
       excludedIds.add(auth.currentUser.uid);
 
       // Fetch rival profiles
       const rivalSide = userData.side === "usc" ? "ucla" : "usc";
-      const showMe = userData.showMe;
       let genderFilter: string[] = [];
-      if (showMe === "men") genderFilter = ["man"];
-      else if (showMe === "women") genderFilter = ["woman"];
+      if (userData.showMe === "men") genderFilter = ["man"];
+      else if (userData.showMe === "women") genderFilter = ["woman"];
       else genderFilter = ["man", "woman", "nonbinary"];
 
       const rivalsSnap = await getDocs(
@@ -131,18 +124,13 @@ export default function DuelsScreen() {
           if (data.showMe === "women" && userData.gender !== "woman") return;
         }
         eligible.push({
-          uid: d.id,
-          name: data.name || "Unknown",
-          age: data.age || 0,
-          side: data.side,
-          photos: data.photos || [],
-          major: data.major || "",
-          gradYear: data.gradYear || "",
-          bio: data.bio || "",
+          uid: d.id, name: data.name || "Unknown", age: data.age || 0,
+          side: data.side, photos: data.photos || [], major: data.major || "",
+          gradYear: data.gradYear || "", bio: data.bio || "",
         });
       });
 
-      // Shuffle
+      // Fisher-Yates shuffle
       for (let i = eligible.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [eligible[i], eligible[j]] = [eligible[j], eligible[i]];
@@ -171,8 +159,6 @@ export default function DuelsScreen() {
     if (!auth.currentUser || challengesRemaining <= 0) return;
     try {
       await incrementSwipeCount();
-
-      // Create a challenge document
       await addDoc(collection(db, "challenges"), {
         fromUserId: auth.currentUser.uid,
         toUserId: profile.uid,
@@ -181,7 +167,6 @@ export default function DuelsScreen() {
         status: "pending",
         createdAt: serverTimestamp(),
       });
-
       setCurrentPhotoIndex(0);
       setCurrentIndex((p) => p + 1);
     } catch (error) {
@@ -190,9 +175,8 @@ export default function DuelsScreen() {
   };
 
   const handlePass = async (profile: ProfileCard) => {
-    if (!auth.currentUser || challengesRemaining <= 0) return;
+    if (!auth.currentUser) return;
     try {
-      await incrementSwipeCount();
       await addDoc(collection(db, "passes"), {
         fromUserId: auth.currentUser.uid,
         toUserId: profile.uid,
@@ -206,6 +190,7 @@ export default function DuelsScreen() {
     }
   };
 
+  // Swipe: right = challenge, left = pass (silent)
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -218,27 +203,15 @@ export default function DuelsScreen() {
         if (!current) return;
         if (g.dx > SWIPE_THRESHOLD) {
           Animated.timing(position, {
-            toValue: { x: width + 100, y: g.dy },
-            duration: 250,
-            useNativeDriver: true,
-          }).start(() => {
-            handleChallenge(current);
-            position.setValue({ x: 0, y: 0 });
-          });
+            toValue: { x: width + 100, y: g.dy }, duration: 250, useNativeDriver: true,
+          }).start(() => { handleChallenge(current); position.setValue({ x: 0, y: 0 }); });
         } else if (g.dx < -SWIPE_THRESHOLD) {
           Animated.timing(position, {
-            toValue: { x: -width - 100, y: g.dy },
-            duration: 250,
-            useNativeDriver: true,
-          }).start(() => {
-            handlePass(current);
-            position.setValue({ x: 0, y: 0 });
-          });
+            toValue: { x: -width - 100, y: g.dy }, duration: 250, useNativeDriver: true,
+          }).start(() => { handlePass(current); position.setValue({ x: 0, y: 0 }); });
         } else {
           Animated.spring(position, {
-            toValue: { x: 0, y: 0 },
-            friction: 5,
-            useNativeDriver: true,
+            toValue: { x: 0, y: 0 }, friction: 5, useNativeDriver: true,
           }).start();
         }
       },
@@ -246,91 +219,59 @@ export default function DuelsScreen() {
   ).current;
 
   const rotate = position.x.interpolate({
-    inputRange: [-width, 0, width],
-    outputRange: ["-12deg", "0deg", "12deg"],
+    inputRange: [-width, 0, width], outputRange: ["-12deg", "0deg", "12deg"],
   });
   const challengeOpacity = position.x.interpolate({
-    inputRange: [0, SWIPE_THRESHOLD],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
+    inputRange: [0, SWIPE_THRESHOLD], outputRange: [0, 1], extrapolate: "clamp",
   });
   const passOpacity = position.x.interpolate({
-    inputRange: [-SWIPE_THRESHOLD, 0],
-    outputRange: [1, 0],
-    extrapolate: "clamp",
+    inputRange: [-SWIPE_THRESHOLD, 0], outputRange: [1, 0], extrapolate: "clamp",
   });
 
-  const handleButtonChallenge = () => {
+  // Tap the Challenge button on the card
+  const handleChallengeButtonTap = () => {
     const c = profiles[currentIndex];
     if (!c) return;
     Animated.timing(position, {
-      toValue: { x: width + 100, y: 0 },
-      duration: 300,
-      useNativeDriver: true,
-    }).start(() => {
-      handleChallenge(c);
-      position.setValue({ x: 0, y: 0 });
-    });
-  };
-
-  const handleButtonPass = () => {
-    const c = profiles[currentIndex];
-    if (!c) return;
-    Animated.timing(position, {
-      toValue: { x: -width - 100, y: 0 },
-      duration: 300,
-      useNativeDriver: true,
-    }).start(() => {
-      handlePass(c);
-      position.setValue({ x: 0, y: 0 });
-    });
+      toValue: { x: width + 100, y: 0 }, duration: 300, useNativeDriver: true,
+    }).start(() => { handleChallenge(c); position.setValue({ x: 0, y: 0 }); });
   };
 
   const handleBlock = async () => {
     const c = profiles[currentIndex];
     if (!c) return;
     setBlockLoading(true);
-    try {
-      await blockUser(c.uid);
-      setShowBlockModal(false);
-      setCurrentIndex((p) => p + 1);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setBlockLoading(false);
-    }
+    try { await blockUser(c.uid); setShowBlockModal(false); setCurrentIndex((p) => p + 1); }
+    catch (e) { console.error(e); }
+    finally { setBlockLoading(false); }
   };
 
   const handleReport = async (reason: ReportReason, desc?: string) => {
     const c = profiles[currentIndex];
     if (!c) return;
     setReportLoading(true);
-    try {
-      await reportUser({ reportedId: c.uid, reason, description: desc });
-      setShowReportModal(false);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setReportLoading(false);
-    }
+    try { await reportUser({ reportedId: c.uid, reason, description: desc }); setShowReportModal(false); }
+    catch (e) { console.error(e); }
+    finally { setReportLoading(false); }
   };
 
-  const handlePhotoTap = (side: "left" | "right") => {
+  const handlePhotoTap = (tapSide: "left" | "right") => {
     const c = profiles[currentIndex];
     if (!c) return;
-    if (side === "right" && currentPhotoIndex < c.photos.length - 1)
-      setCurrentPhotoIndex(currentPhotoIndex + 1);
-    else if (side === "left" && currentPhotoIndex > 0)
-      setCurrentPhotoIndex(currentPhotoIndex - 1);
+    if (tapSide === "right" && currentPhotoIndex < c.photos.length - 1) setCurrentPhotoIndex(currentPhotoIndex + 1);
+    else if (tapSide === "left" && currentPhotoIndex > 0) setCurrentPhotoIndex(currentPhotoIndex - 1);
   };
 
   const currentProfile = profiles[currentIndex];
 
+  // ─── Empty states ──────────────────────────────────────────
   if (loading)
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Duels</Text>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerTitle}>Duels</Text>
+          </View>
         </View>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={accentColor(userSide)} />
@@ -342,7 +283,9 @@ export default function DuelsScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Duels</Text>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerTitle}>Duels</Text>
+          </View>
         </View>
         <View style={styles.centered}>
           <View style={styles.emptyIcon}>
@@ -350,7 +293,7 @@ export default function DuelsScreen() {
           </View>
           <Text style={styles.emptyTitle}>Daily Limit Reached</Text>
           <Text style={styles.emptySubtitle}>
-            You've used all 30 challenges today.{"\n"}Come back tomorrow!
+            You've used all your challenges for today.{"\n"}Come back tomorrow!
           </Text>
         </View>
       </View>
@@ -360,7 +303,9 @@ export default function DuelsScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Duels</Text>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerTitle}>Duels</Text>
+          </View>
         </View>
         <View style={styles.centered}>
           <View style={styles.emptyIcon}>
@@ -377,48 +322,41 @@ export default function DuelsScreen() {
       </View>
     );
 
-  const sideColor = schoolColor(currentProfile.side);
-  const sideName = currentProfile.side === "usc" ? "USC" : "UCLA";
+  // ─── Main render ───────────────────────────────────────────
+  const rivalSideColor = schoolColor(currentProfile.side);
+  const rivalSideName = currentProfile.side === "usc" ? "USC" : "UCLA";
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
+      {/* Header: "Duels  30 left today"  🔔 */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Duels</Text>
-        <View style={styles.swipeCounter}>
-          <FontAwesome name="bolt" size={12} color={accentColor(userSide)} />
-          <Text style={styles.swipeCountText}>{challengesRemaining} left</Text>
+        <View style={styles.headerLeft}>
+          <Text style={styles.headerTitle}>Duels</Text>
+          <Text style={styles.headerCounter}>{challengesRemaining} left today</Text>
         </View>
+        <Pressable style={styles.bellButton}>
+          <FontAwesome name="bell" size={18} color="rgba(255,255,255,0.5)" />
+        </Pressable>
       </View>
 
       {/* Card Stack */}
       <View style={styles.cardContainer}>
         <Animated.View
           {...panResponder.panHandlers}
-          style={[
-            styles.card,
-            {
-              transform: [
-                { translateX: position.x },
-                { translateY: position.y },
-                { rotate },
-              ],
-            },
-          ]}
+          style={[styles.card, {
+            transform: [{ translateX: position.x }, { translateY: position.y }, { rotate }],
+          }]}
         >
-          <Image
-            source={{ uri: currentProfile.photos[currentPhotoIndex] || "" }}
-            style={styles.cardImage}
-          />
+          {/* Photo */}
+          <Image source={{ uri: currentProfile.photos[currentPhotoIndex] || "" }} style={styles.cardImage} />
           <Pressable style={styles.photoTapLeft} onPress={() => handlePhotoTap("left")} />
           <Pressable style={styles.photoTapRight} onPress={() => handlePhotoTap("right")} />
+
+          {/* Photo indicators */}
           {currentProfile.photos.length > 1 && (
             <View style={styles.photoIndicators}>
               {currentProfile.photos.map((_, i) => (
-                <View
-                  key={i}
-                  style={[styles.indicator, i === currentPhotoIndex && styles.indicatorActive]}
-                />
+                <View key={i} style={[styles.indicator, i === currentPhotoIndex && styles.indicatorActive]} />
               ))}
             </View>
           )}
@@ -431,61 +369,59 @@ export default function DuelsScreen() {
             <Text style={[styles.stampText, { color: "#EF4444" }]}>PASS</Text>
           </Animated.View>
 
-          {/* Card overlay info */}
+          {/* Info overlay on photo */}
           <View style={styles.cardOverlay}>
-            <View style={[styles.sideBadge, { backgroundColor: sideColor }]}>
-              <Text style={styles.sideBadgeText}>{sideName}</Text>
+            <View style={styles.cardInfoRow}>
+              <Text style={styles.cardName}>{currentProfile.name}.</Text>
+              <View style={[styles.sideBadge, { backgroundColor: rivalSideColor }]}>
+                <Text style={styles.sideBadgeText}>{rivalSideName}</Text>
+              </View>
             </View>
-            <Text style={styles.cardName}>
-              {currentProfile.name}, {currentProfile.age}
+            <Text style={styles.cardMeta}>
+              {currentProfile.major} · Class of {currentProfile.gradYear}
             </Text>
-            <Text style={styles.cardInfo}>
-              {currentProfile.major} • {currentProfile.gradYear}
-            </Text>
-            {currentProfile.bio ? (
-              <Text style={styles.cardBio} numberOfLines={2}>
-                {currentProfile.bio}
-              </Text>
-            ) : null}
           </View>
 
+          {/* More options */}
           <Pressable style={styles.moreButton} onPress={() => setShowOptions(true)}>
             <FontAwesome name="ellipsis-h" size={18} color="rgba(255,255,255,0.7)" />
           </Pressable>
+
+          {/* Bio + Challenge button (below photo area, inside card) */}
+          <View style={styles.cardBottom}>
+            {currentProfile.bio ? (
+              <Text style={styles.cardBio} numberOfLines={2}>
+                "{currentProfile.bio}"
+              </Text>
+            ) : null}
+
+            {/* ⚔ Challenge — the primary action, full-width on card */}
+            <Pressable style={styles.challengeButton} onPress={handleChallengeButtonTap}>
+              <Text style={styles.challengeButtonText}>⚔ Challenge</Text>
+            </Pressable>
+          </View>
         </Animated.View>
       </View>
 
-      {/* Action buttons */}
-      <View style={styles.actions}>
-        <Pressable style={[styles.actionBtn, styles.passBtn]} onPress={handleButtonPass}>
-          <FontAwesome name="times" size={28} color="#EF4444" />
-        </Pressable>
-        <Pressable style={[styles.actionBtn, styles.challengeBtn]} onPress={handleButtonChallenge}>
-          <FontAwesome name="bolt" size={28} color={accentColor(userSide)} />
-        </Pressable>
-      </View>
+      {/* Dot indicators below card */}
+      {currentProfile.photos.length > 1 && (
+        <View style={styles.dotsBelow}>
+          {currentProfile.photos.map((_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.dotBelow,
+                { backgroundColor: i === currentPhotoIndex ? accentColor(userSide) : "rgba(255,255,255,0.25)" },
+              ]}
+            />
+          ))}
+        </View>
+      )}
 
       {/* Modals */}
-      <MoreOptionsMenu
-        visible={showOptions}
-        onClose={() => setShowOptions(false)}
-        onBlock={() => setShowBlockModal(true)}
-        onReport={() => setShowReportModal(true)}
-      />
-      <BlockModal
-        visible={showBlockModal}
-        onClose={() => setShowBlockModal(false)}
-        onBlock={handleBlock}
-        userName={currentProfile?.name || ""}
-        loading={blockLoading}
-      />
-      <ReportModal
-        visible={showReportModal}
-        onClose={() => setShowReportModal(false)}
-        onSubmit={handleReport}
-        userName={currentProfile?.name || ""}
-        loading={reportLoading}
-      />
+      <MoreOptionsMenu visible={showOptions} onClose={() => setShowOptions(false)} onBlock={() => setShowBlockModal(true)} onReport={() => setShowReportModal(true)} />
+      <BlockModal visible={showBlockModal} onClose={() => setShowBlockModal(false)} onBlock={handleBlock} userName={currentProfile?.name || ""} loading={blockLoading} />
+      <ReportModal visible={showReportModal} onClose={() => setShowReportModal(false)} onSubmit={handleReport} userName={currentProfile?.name || ""} loading={reportLoading} />
     </View>
   );
 }
@@ -493,6 +429,9 @@ export default function DuelsScreen() {
 const createStyles = (_s: string) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: "#0F172A" },
+    centered: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 40 },
+
+    // ── Header ───────────────────────────────────────────────
     header: {
       flexDirection: "row",
       alignItems: "center",
@@ -500,124 +439,102 @@ const createStyles = (_s: string) =>
       paddingHorizontal: 20,
       paddingVertical: 12,
     },
+    headerLeft: { flexDirection: "row", alignItems: "baseline", gap: 10 },
     headerTitle: { fontSize: 28, fontWeight: "800", color: "#fff" },
-    swipeCounter: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      backgroundColor: accentBg(_s, 0.1),
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 20,
+    headerCounter: { fontSize: 15, fontWeight: "600", color: accentColor(_s) },
+    bellButton: {
+      width: 36, height: 36, borderRadius: 18,
+      justifyContent: "center", alignItems: "center",
     },
-    swipeCountText: { fontSize: 14, fontWeight: "700", color: accentColor(_s) },
-    centered: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 40 },
-    emptyIcon: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      backgroundColor: accentBg(_s, 0.1),
-      justifyContent: "center",
-      alignItems: "center",
-      marginBottom: 20,
-    },
-    emptyTitle: { fontSize: 22, fontWeight: "700", color: "#fff", marginBottom: 8 },
-    emptySubtitle: {
-      fontSize: 15,
-      color: "rgba(255,255,255,0.4)",
-      textAlign: "center",
-      lineHeight: 22,
-    },
-    refreshBtn: {
-      marginTop: 24,
-      paddingVertical: 12,
-      paddingHorizontal: 28,
-      backgroundColor: accentBg(_s, 0.1),
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: accentBg(_s, 0.2),
-    },
-    refreshText: { fontSize: 16, fontWeight: "600", color: accentColor(_s) },
-    cardContainer: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
+
+    // ── Card ─────────────────────────────────────────────────
+    cardContainer: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
     card: {
-      width: width - 24,
-      height: height * 0.58,
+      width: width - 32,
+      maxHeight: height * 0.68,
       borderRadius: 20,
       overflow: "hidden",
       backgroundColor: "#1E293B",
     },
-    cardImage: { width: "100%", height: "100%", backgroundColor: "#334155" },
-    photoTapLeft: { position: "absolute", left: 0, top: 0, bottom: 80, width: "40%" },
-    photoTapRight: { position: "absolute", right: 0, top: 0, bottom: 80, width: "40%" },
+    cardImage: { width: "100%", height: "70%", backgroundColor: "#334155" },
+    photoTapLeft: { position: "absolute", left: 0, top: 0, width: "40%", height: "60%" },
+    photoTapRight: { position: "absolute", right: 0, top: 0, width: "40%", height: "60%" },
+
+    // Photo indicators on top of photo
     photoIndicators: {
-      position: "absolute",
-      top: 12,
-      left: 16,
-      right: 16,
-      flexDirection: "row",
-      gap: 4,
+      position: "absolute", top: 12, left: 16, right: 16,
+      flexDirection: "row", gap: 4,
     },
     indicator: { flex: 1, height: 3, backgroundColor: "rgba(255,255,255,0.3)", borderRadius: 2 },
     indicatorActive: { backgroundColor: "#fff" },
-    stampContainer: { position: "absolute", top: 40, padding: 10, borderWidth: 3, borderRadius: 10 },
-    challengeStamp: {
-      left: 20,
-      borderColor: accentColor(_s),
-      transform: [{ rotate: "-15deg" }],
-    },
-    passStamp: {
-      right: 20,
-      borderColor: "#EF4444",
-      transform: [{ rotate: "15deg" }],
-    },
+
+    // Swipe stamps
+    stampContainer: { position: "absolute", top: 50, padding: 10, borderWidth: 3, borderRadius: 10 },
+    challengeStamp: { left: 20, borderColor: accentColor(_s), transform: [{ rotate: "-15deg" }] },
+    passStamp: { right: 20, borderColor: "#EF4444", transform: [{ rotate: "15deg" }] },
     stampText: { fontSize: 32, fontWeight: "900", letterSpacing: 3 },
+
+    // Info overlay on bottom of photo
     cardOverlay: {
-      position: "absolute",
-      bottom: 0,
-      left: 0,
-      right: 0,
-      padding: 20,
-      paddingTop: 60,
+      position: "absolute", left: 0, right: 0,
+      bottom: "30%", // sits above the cardBottom section
+      padding: 20, paddingTop: 50,
       backgroundColor: "rgba(0,0,0,0.5)",
     },
+    cardInfoRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 },
+    cardName: { fontSize: 26, fontWeight: "800", color: "#fff" },
     sideBadge: {
-      alignSelf: "flex-start",
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 8,
-      marginBottom: 8,
+      paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
     },
     sideBadgeText: { fontSize: 12, fontWeight: "800", color: "#fff", letterSpacing: 1 },
-    cardName: { fontSize: 26, fontWeight: "800", color: "#fff", marginBottom: 2 },
-    cardInfo: { fontSize: 15, color: "rgba(255,255,255,0.7)", marginBottom: 4 },
-    cardBio: { fontSize: 14, color: "rgba(255,255,255,0.5)", lineHeight: 20 },
-    moreButton: {
-      position: "absolute",
-      top: 16,
-      right: 16,
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: "rgba(0,0,0,0.4)",
+    cardMeta: { fontSize: 14, color: "rgba(255,255,255,0.7)" },
+
+    // Bottom section of card (bio + challenge button)
+    cardBottom: {
+      paddingHorizontal: 20, paddingVertical: 16,
       justifyContent: "center",
+    },
+    cardBio: {
+      fontSize: 14, color: "rgba(255,255,255,0.45)", lineHeight: 20,
+      marginBottom: 14, fontStyle: "italic",
+    },
+    challengeButton: {
+      backgroundColor: accentColor(_s),
+      paddingVertical: 14,
+      borderRadius: 14,
       alignItems: "center",
     },
-    actions: {
-      flexDirection: "row",
-      justifyContent: "center",
-      gap: 32,
-      paddingVertical: 16,
-      paddingBottom: 8,
+    challengeButtonText: {
+      fontSize: 17, fontWeight: "800", color: "#fff", letterSpacing: 0.5,
     },
-    actionBtn: { width: 64, height: 64, borderRadius: 32, justifyContent: "center", alignItems: "center" },
-    passBtn: {
-      backgroundColor: "rgba(239,68,68,0.12)",
-      borderWidth: 2,
-      borderColor: "rgba(239,68,68,0.3)",
+
+    // More options
+    moreButton: {
+      position: "absolute", top: 16, right: 16,
+      width: 36, height: 36, borderRadius: 18,
+      backgroundColor: "rgba(0,0,0,0.4)",
+      justifyContent: "center", alignItems: "center",
     },
-    challengeBtn: {
-      backgroundColor: accentBg(_s, 0.12),
-      borderWidth: 2,
-      borderColor: accentBg(_s, 0.3),
+
+    // Dots below card
+    dotsBelow: {
+      flexDirection: "row", justifyContent: "center", gap: 6,
+      paddingVertical: 12,
     },
+    dotBelow: { width: 8, height: 8, borderRadius: 4 },
+
+    // ── Empty states ─────────────────────────────────────────
+    emptyIcon: {
+      width: 80, height: 80, borderRadius: 40,
+      backgroundColor: accentBg(_s, 0.1),
+      justifyContent: "center", alignItems: "center", marginBottom: 20,
+    },
+    emptyTitle: { fontSize: 22, fontWeight: "700", color: "#fff", marginBottom: 8 },
+    emptySubtitle: { fontSize: 15, color: "rgba(255,255,255,0.4)", textAlign: "center", lineHeight: 22 },
+    refreshBtn: {
+      marginTop: 24, paddingVertical: 12, paddingHorizontal: 28,
+      backgroundColor: accentBg(_s, 0.1), borderRadius: 12,
+      borderWidth: 1, borderColor: accentBg(_s, 0.2),
+    },
+    refreshText: { fontSize: 16, fontWeight: "600", color: accentColor(_s) },
   });
