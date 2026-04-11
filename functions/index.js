@@ -10,7 +10,7 @@
 // 2. npm install
 // 3. firebase deploy --only functions
 
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
@@ -341,6 +341,192 @@ exports.inactiveNudge = onSchedule(
 // ============================================
 // SCHEDULED: Daily Cleanup (every day at 4am PT)
 // Clean up expired passes, old data
+// ============================================
+
+// ============================================
+// GAME COMPLETED → increment wins + scoreboard
+// ============================================
+
+exports.onGameComplete = onDocumentUpdated("games/{gameId}", async (event) => {
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+
+  if (before.status === "complete" || after.status !== "complete") return;
+
+  const winnerId = after.winner;
+  if (!winnerId || winnerId === "draw") return;
+
+  const winnerSide = after.sides?.[winnerId];
+  if (!winnerSide) return;
+
+  try {
+    // Increment winner's personal win count
+    const winnerRef = db.collection("users").doc(winnerId);
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(winnerRef);
+      const current = snap.exists ? (snap.data().wins || 0) : 0;
+      tx.update(winnerRef, { wins: current + 1 });
+    });
+
+    // Increment school tally (all-time + weekly)
+    const talliesRef = db.collection("scoreboard").doc("tallies");
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(talliesRef);
+      if (!snap.exists) {
+        tx.set(talliesRef, {
+          usc_alltime: winnerSide === "usc" ? 1 : 0,
+          ucla_alltime: winnerSide === "ucla" ? 1 : 0,
+          usc_weekly: winnerSide === "usc" ? 1 : 0,
+          ucla_weekly: winnerSide === "ucla" ? 1 : 0,
+        });
+      } else {
+        const data = snap.data();
+        tx.update(talliesRef, {
+          [`${winnerSide}_alltime`]: (data[`${winnerSide}_alltime`] || 0) + 1,
+          [`${winnerSide}_weekly`]: (data[`${winnerSide}_weekly`] || 0) + 1,
+        });
+      }
+    });
+
+    // Push loser: "rematch?" nudge
+    const loserId = after.players?.find((p) => p !== winnerId);
+    if (loserId) {
+      const loserToken = await getUserPushToken(loserId);
+      if (loserToken) {
+        const winnerSnap = await db.collection("users").doc(winnerId).get();
+        const winnerName = winnerSnap.exists ? winnerSnap.data().name?.split(" ")[0] || "Your rival" : "Your rival";
+        const gameLabel = after.type === "cup_pong" ? "Cup Pong" : "Word Hunt";
+        await sendPush(loserToken, `${winnerName} won ${gameLabel} 🏆`, "Rematch?", {
+          matchId: after.matchId, type: "game_result",
+        });
+      }
+    }
+  } catch (err) {
+    console.error("onGameComplete error:", err);
+  }
+});
+
+// ============================================
+// GAME TURN CHANGED → notify the next player
+// ============================================
+
+exports.onGameTurnChanged = onDocumentUpdated("games/{gameId}", async (event) => {
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+
+  if (before.currentTurn === after.currentTurn) return;
+  if (after.status !== "active") return;
+
+  const nextPlayerId = after.currentTurn;
+  if (!nextPlayerId) return;
+
+  try {
+    const token = await getUserPushToken(nextPlayerId);
+    if (!token) return;
+
+    const opponentId = after.players?.find((p) => p !== nextPlayerId);
+    let opponentName = "Your rival";
+    if (opponentId) {
+      const opSnap = await db.collection("users").doc(opponentId).get();
+      if (opSnap.exists) opponentName = opSnap.data().name?.split(" ")[0] || "Your rival";
+    }
+
+    const gameLabel = after.type === "cup_pong" ? "Cup Pong" : "Word Hunt";
+    await sendPush(token, `${opponentName} played their turn ⚔`, `It's your turn in ${gameLabel}`, {
+      gameId: event.params.gameId, gameType: after.type, matchId: after.matchId, type: "your_turn",
+    });
+  } catch (err) {
+    console.error("onGameTurnChanged error:", err);
+  }
+});
+
+// ============================================
+// WEEKLY SCOREBOARD RESET — every Monday midnight PT
+// ============================================
+
+exports.weeklyScoreboardReset = onSchedule(
+  { schedule: "0 8 * * 1", timeZone: "America/Los_Angeles" },
+  async () => {
+    try {
+      const talliesRef = db.collection("scoreboard").doc("tallies");
+      const snap = await talliesRef.get();
+      if (!snap.exists) return;
+
+      const data = snap.data();
+      const uscWeekly = data.usc_weekly || 0;
+      const uclaWeekly = data.ucla_weekly || 0;
+
+      await db.collection("scoreboard").doc(`week_${Date.now()}`).set({
+        usc: uscWeekly,
+        ucla: uclaWeekly,
+        winner: uscWeekly > uclaWeekly ? "usc" : uclaWeekly > uscWeekly ? "ucla" : "draw",
+        archivedAt: new Date(),
+      });
+
+      await talliesRef.update({ usc_weekly: 0, ucla_weekly: 0 });
+      console.log(`Weekly reset: USC ${uscWeekly} — UCLA ${uclaWeekly}`);
+
+      if (uscWeekly !== uclaWeekly) {
+        const winner = uscWeekly > uclaWeekly ? "USC" : "UCLA";
+        const loser = uscWeekly > uclaWeekly ? "UCLA" : "USC";
+        const usersSnap = await db.collection("users").where("expoPushToken", "!=", null).limit(500).get();
+        const messages = [];
+        for (const userDoc of usersSnap.docs) {
+          const token = userDoc.data().expoPushToken;
+          if (!Expo.isExpoPushToken(token)) continue;
+          const isWinner = userDoc.data().side === winner.toLowerCase();
+          messages.push({
+            to: token, sound: "default",
+            title: isWinner ? `${winner} wins the week 🏆` : `${winner} beat you this week`,
+            body: `${winner} ${Math.max(uscWeekly, uclaWeekly)} — ${loser} ${Math.min(uscWeekly, uclaWeekly)}. New week starts now.`,
+            data: { type: "weekly_result" },
+          });
+        }
+        const chunks = expo.chunkPushNotifications(messages);
+        for (const chunk of chunks) await expo.sendPushNotificationsAsync(chunk).catch(console.error);
+      }
+    } catch (err) {
+      console.error("weeklyScoreboardReset error:", err);
+    }
+  }
+);
+
+// ============================================
+// SCOREBOARD GAP ALERT — fires when a school closes to within 50 points
+// ============================================
+
+exports.checkScoreboardGapAlert = onDocumentUpdated("scoreboard/tallies", async (event) => {
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+
+  const gapBefore = Math.abs((before.usc_weekly || 0) - (before.ucla_weekly || 0));
+  const gapAfter = Math.abs((after.usc_weekly || 0) - (after.ucla_weekly || 0));
+
+  if (gapBefore < 50 || gapAfter >= 50) return;
+
+  const leaderSide = (before.usc_weekly || 0) > (before.ucla_weekly || 0) ? "usc" : "ucla";
+  const closingName = leaderSide === "usc" ? "UCLA" : "USC";
+
+  const usersSnap = await db.collection("users")
+    .where("side", "==", leaderSide)
+    .where("expoPushToken", "!=", null)
+    .limit(500).get();
+
+  const messages = [];
+  for (const userDoc of usersSnap.docs) {
+    const token = userDoc.data().expoPushToken;
+    if (!Expo.isExpoPushToken(token)) continue;
+    messages.push({
+      to: token, sound: "default",
+      title: `${closingName} is closing the gap 🔥`,
+      body: `Defend your lead — challenge a ${closingName} student now`,
+      data: { type: "gap_alert", screen: "duels" },
+    });
+  }
+  const chunks = expo.chunkPushNotifications(messages);
+  for (const chunk of chunks) await expo.sendPushNotificationsAsync(chunk).catch(console.error);
+});
+
 // ============================================
 
 exports.dailyCleanup = onSchedule(

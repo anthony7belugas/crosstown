@@ -8,6 +8,7 @@ import {
   orderBy, query, serverTimestamp, setDoc, updateDoc, where, limit,
 } from "firebase/firestore";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { createGame } from "../../utils/gameUtils";
 import {
   ActivityIndicator, Alert, FlatList, Image, Pressable,
   RefreshControl, StyleSheet, Text, View,
@@ -173,7 +174,14 @@ export default function RivalsScreen() {
         users: matchUsers, createdAt: serverTimestamp(),
         lastMessage: null, lastMessageAt: serverTimestamp(),
       });
-      router.push(`/chat/${matchId}` as any);
+      // Create Cup Pong game immediately and route into it
+      const gameId = await createGame(
+        matchId,
+        "cup_pong",
+        [auth.currentUser.uid, challenge.fromUserId],
+        { [auth.currentUser.uid]: mySide as any, [challenge.fromUserId]: challenge.fromSide }
+      );
+      router.push(`/game/cup-pong/${gameId}` as any);
     } catch (error) {
       console.error("Error accepting:", error);
       Alert.alert("Error", "Failed to accept challenge.");
