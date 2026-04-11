@@ -79,7 +79,7 @@ export default function RootLayout() {
             if (status === "granted") {
               await updateDoc(doc(db, "users", user.uid), { notificationPromptShown: true });
               setHasNavigated(true);
-              router.replace("/(tabs)/swipe");
+              router.replace("/(tabs)/duels");
             } else {
               setHasNavigated(true);
               router.replace({
@@ -89,7 +89,7 @@ export default function RootLayout() {
             }
           } else {
             setHasNavigated(true);
-            router.replace("/(tabs)/swipe");
+            router.replace("/(tabs)/duels");
           }
         } else {
           // Profile not complete → continue onboarding
@@ -104,7 +104,7 @@ export default function RootLayout() {
       } catch (error) {
         console.error("Error checking profile:", error);
         setHasNavigated(true);
-        router.replace("/(tabs)/swipe");
+        router.replace("/(tabs)/duels");
       }
     };
 

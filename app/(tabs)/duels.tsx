@@ -1,4 +1,4 @@
-// app/(tabs)/swipe.tsx
+// app/(tabs)/duels.tsx
 // Core swipe screen — fetches rival profiles, handles likes/passes, detects matches
 import { FontAwesome } from "@expo/vector-icons";
 import { useRouter } from "expo-router";

@@ -48,7 +48,7 @@ export default function EnableNotificationsScreen() {
         notificationPromptShown: true,
       });
     }
-    router.replace("/(tabs)/swipe");
+    router.replace("/(tabs)/duels");
   };
 
   const handleEnable = async () => {

@@ -26,7 +26,7 @@ export default function LoginScreen() {
     try {
       await signInWithEmailAndPassword(auth, email.toLowerCase().trim(), password);
       // TODO: check if profile is completed, route accordingly
-      router.replace("/(tabs)/swipe");
+      router.replace("/(tabs)/duels");
     } catch (error: any) {
       if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
         Alert.alert("Login Failed", "Invalid email or password.");

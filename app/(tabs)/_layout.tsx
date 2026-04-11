@@ -21,11 +21,13 @@ export default function TabsLayout() {
     loadSide();
   }, []);
 
+  const accent = accentColor(side);
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: accentColor(side),
+        tabBarActiveTintColor: accent,
         tabBarInactiveTintColor: TEXT_SECONDARY,
         tabBarStyle: {
           backgroundColor: BG_PRIMARY,
@@ -44,24 +46,40 @@ export default function TabsLayout() {
         },
       }}
     >
+      {/* Tab 1: Duels — browse rivals and send challenges (was swipe.tsx, rename to duels.tsx) */}
       <Tabs.Screen
-        name="swipe"
+        name="duels"
         options={{
-          title: "Swipe",
+          title: "Duels",
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome name="heart" size={size} color={color} />
+            <FontAwesome name="bolt" size={size} color={color} />
           ),
         }}
       />
+
+      {/* Tab 2: Rivals — incoming challenges + active showdowns + chats */}
       <Tabs.Screen
-        name="chat"
+        name="rivals"
         options={{
-          title: "Chat",
+          title: "Rivals",
           tabBarIcon: ({ color, size }) => (
             <FontAwesome name="comment" size={size} color={color} />
           ),
         }}
       />
+
+      {/* Tab 3: Scoreboard — live USC vs UCLA tally, weekly reset, top players */}
+      <Tabs.Screen
+        name="scoreboard"
+        options={{
+          title: "Scoreboard",
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome name="trophy" size={size} color={color} />
+          ),
+        }}
+      />
+
+      {/* Tab 4: Profile — edit profile, settings, logout */}
       <Tabs.Screen
         name="profile"
         options={{
