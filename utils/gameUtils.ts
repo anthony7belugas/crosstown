@@ -92,7 +92,7 @@ export const getCupCenter = (
 // ─── Cup Pong Hit Detection (PURE AIM — no RNG) ─────────────
 
 /** Radius for hit detection — generous but fair. */
-export const CUP_HIT_RADIUS = 0.09; // normalized (fraction of area width)
+export const CUP_HIT_RADIUS = 0.14; // normalized — generous for fun gameplay
 
 /**
  * Check if a landing point hits any standing cup.

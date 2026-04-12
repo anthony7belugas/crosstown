@@ -2,22 +2,33 @@
   "expo": {
     "name": "CrossTown",
     "slug": "crosstown",
-    "version": "1.0.0",
+    "version": "0.9.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "crosstown",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "owner": "anthony7belugas",
+    "runtimeVersion": "0.9.0",
+    "updates": {
+      "url": "https://u.expo.dev/82a1d147-0894-47b1-b79d-31a4b5d5b13a"
+    },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.bestiesinc.crosstown"
+      "bundleIdentifier": "com.bestiesinc.crosstown",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.bestiesinc.crosstown"
+      "package": "com.bestiesinc.crosstown",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -39,6 +50,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "82a1d147-0894-47b1-b79d-31a4b5d5b13a"
+      }
     }
   }
 }
