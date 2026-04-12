@@ -6,6 +6,7 @@ import {
   addDoc, collection, doc, serverTimestamp, updateDoc,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
+import { isValidWord } from "./wordList";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -31,65 +32,160 @@ export interface Game {
   turnDone?: Record<string, boolean>;    // uid -> has played their round
 }
 
-// ─── Cup Layout ──────────────────────────────────────────────
+// ─── Cup Pong Layout ────────────────────────────────────────
 // Triangle: 3 at back, 2 in middle, 1 at front
-// Indices:  0  1  2   (row 0)
-//              3  4   (row 1)
-//               5     (row 2)
+// Indices:  0  1  2   (row 0 — back row, farthest from thrower)
+//              3  4   (row 1 — middle)
+//               5     (row 2 — front, closest to thrower)
 
-export interface CupLayout {
-  row: number;
-  col: number; // 0-indexed within the row
-  maxCols: number; // total cups in this row
-}
-
-export const CUP_LAYOUT: CupLayout[] = [
-  { row: 0, col: 0, maxCols: 3 },
-  { row: 0, col: 1, maxCols: 3 },
-  { row: 0, col: 2, maxCols: 3 },
-  { row: 1, col: 0, maxCols: 2 },
-  { row: 1, col: 1, maxCols: 2 },
-  { row: 2, col: 0, maxCols: 1 },
-];
-
+export const CUPS_PER_SIDE = 6;
 export const INITIAL_CUPS = (): boolean[] => [true, true, true, true, true, true];
 
-/** Get the pixel center of a cup within a container of (areaW x areaH). */
+// Row definitions for the triangle
+const CUP_ROWS = [
+  { count: 3, indices: [0, 1, 2] }, // back
+  { count: 2, indices: [3, 4] },    // middle
+  { count: 1, indices: [5] },       // front
+];
+
+/**
+ * Get the normalized center of a cup (0-1 range).
+ * flipped=true means the triangle points upward (opponent view — front cup at bottom).
+ */
+export const getCupPosition = (
+  index: number,
+  flipped: boolean
+): { nx: number; ny: number } => {
+  let row = -1, col = -1, rowCount = -1;
+  for (const r of CUP_ROWS) {
+    const colIdx = r.indices.indexOf(index);
+    if (colIdx >= 0) {
+      row = CUP_ROWS.indexOf(r);
+      col = colIdx;
+      rowCount = r.count;
+      break;
+    }
+  }
+  if (row < 0) return { nx: 0.5, ny: 0.5 };
+
+  const totalRows = 3;
+  // Horizontal: evenly space within the row, centered
+  const nx = (col + 1) / (rowCount + 1);
+  // Vertical: spread across 3 rows with padding
+  const rowNorm = (row + 1) / (totalRows + 1);
+  const ny = flipped ? (1 - rowNorm) : rowNorm;
+
+  return { nx, ny };
+};
+
+/** Convert normalized position to pixel coordinates within a container. */
 export const getCupCenter = (
   index: number,
   areaW: number,
   areaH: number,
-  flipped = false // flip triangle orientation (for opponent's side)
+  flipped: boolean
 ): { x: number; y: number } => {
-  const layout = CUP_LAYOUT[index];
-  const ROW_COUNT = 3;
-  const rowH = areaH / (ROW_COUNT + 1);
-  const colW = areaW / (layout.maxCols + 1);
+  const { nx, ny } = getCupPosition(index, flipped);
+  return { x: nx * areaW, y: ny * areaH };
+};
 
-  const x = colW * (layout.col + 1);
-  const rawY = rowH * (layout.row + 1);
-  const y = flipped ? areaH - rawY : rawY;
-  return { x, y };
+// ─── Cup Pong Hit Detection (PURE AIM — no RNG) ─────────────
+
+/** Radius for hit detection — generous but fair. */
+export const CUP_HIT_RADIUS = 0.09; // normalized (fraction of area width)
+
+/**
+ * Check if a landing point hits any standing cup.
+ * All coordinates in normalized 0-1 space.
+ * Returns the cup index that was hit, or -1 for a miss.
+ */
+export const checkCupHit = (
+  landingNx: number,
+  landingNy: number,
+  cups: boolean[],
+  flipped: boolean
+): number => {
+  let closestIdx = -1;
+  let closestDist = Infinity;
+
+  for (let i = 0; i < CUPS_PER_SIDE; i++) {
+    if (!cups[i]) continue; // already sunk
+    const { nx, ny } = getCupPosition(i, flipped);
+    const dx = landingNx - nx;
+    const dy = landingNy - ny;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < CUP_HIT_RADIUS && dist < closestDist) {
+      closestDist = dist;
+      closestIdx = i;
+    }
+  }
+  return closestIdx;
 };
 
 // ─── Word Hunt Board ─────────────────────────────────────────
 
-const VOWELS = "AAAEEEIIOO";
-const CONSONANTS = "BCDDFGGHHKLLLMMNNNPRRRSSSTTTVWY";
+// Letter frequencies tuned for good boards
+const VOWELS = "AAAEEEIIOOUU";
+const CONSONANTS = "BBCDDFFGGHHKLLMMNNPPRRRSSSTTTTVWY";
+
+/** Count how many valid words can be found on a board using DFS. */
+const countBoardWords = (board: string[]): number => {
+  const found = new Set<string>();
+
+  const dfs = (path: number[], word: string) => {
+    if (word.length >= 3 && isValidWord(word)) {
+      found.add(word);
+    }
+    if (word.length >= 8) return; // max word length
+
+    const last = path[path.length - 1];
+    const lastRow = Math.floor(last / 4);
+    const lastCol = last % 4;
+
+    for (let i = 0; i < 16; i++) {
+      if (path.includes(i)) continue;
+      const row = Math.floor(i / 4);
+      const col = i % 4;
+      if (Math.abs(row - lastRow) <= 1 && Math.abs(col - lastCol) <= 1) {
+        dfs([...path, i], word + board[i]);
+      }
+    }
+  };
+
+  for (let i = 0; i < 16; i++) {
+    dfs([i], board[i]);
+  }
+  return found.size;
+};
+
+/**
+ * Generate a board and validate it has at least MIN_WORDS findable words.
+ * Retries up to 20 times.
+ */
+const MIN_WORDS = 20;
 
 export const generateBoard = (): string[] => {
-  const board: string[] = new Array(16);
-  // Guarantee ~5 vowels spread across the grid
-  const indices = [...Array(16).keys()].sort(() => Math.random() - 0.5);
-  const vowelSlots = new Set(indices.slice(0, 5));
-  for (let i = 0; i < 16; i++) {
-    if (vowelSlots.has(i)) {
-      board[i] = VOWELS[Math.floor(Math.random() * VOWELS.length)];
-    } else {
-      board[i] = CONSONANTS[Math.floor(Math.random() * CONSONANTS.length)];
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const board: string[] = new Array(16);
+    // Guarantee 5-6 vowels spread across the grid
+    const indices = [...Array(16).keys()].sort(() => Math.random() - 0.5);
+    const vowelCount = 5 + Math.floor(Math.random() * 2); // 5 or 6
+    const vowelSlots = new Set(indices.slice(0, vowelCount));
+
+    for (let i = 0; i < 16; i++) {
+      if (vowelSlots.has(i)) {
+        board[i] = VOWELS[Math.floor(Math.random() * VOWELS.length)];
+      } else {
+        board[i] = CONSONANTS[Math.floor(Math.random() * CONSONANTS.length)];
+      }
     }
+
+    const wordCount = countBoardWords(board);
+    if (wordCount >= MIN_WORDS) return board;
   }
-  return board;
+
+  // Fallback: return a known-good board layout
+  return ["T", "H", "E", "R", "A", "N", "D", "S", "I", "L", "O", "W", "G", "E", "T", "S"];
 };
 
 /** Two grid positions (0-15) are adjacent if they share an edge or corner. */
@@ -144,15 +240,4 @@ export const createGame = async (
   });
 
   return ref.id;
-};
-
-// ─── Shot result helper for Cup Pong ─────────────────────────
-
-/**
- * Given a throw "accuracy" (0–1, 1 = perfect center), determine if it's a hit.
- * ~60% hit rate at perfect accuracy, dropping off with distance.
- */
-export const computeHit = (accuracy: number): boolean => {
-  const hitChance = 0.6 * Math.pow(accuracy, 0.7);
-  return Math.random() < hitChance;
 };

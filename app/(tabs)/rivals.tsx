@@ -8,7 +8,6 @@ import {
   orderBy, query, serverTimestamp, setDoc, updateDoc, where, limit,
 } from "firebase/firestore";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { createGame } from "../../utils/gameUtils";
 import {
   ActivityIndicator, Alert, FlatList, Image, Pressable,
   RefreshControl, StyleSheet, Text, View,
@@ -19,6 +18,7 @@ import {
   accentColor, accentBg, schoolColor,
   BG_PRIMARY, BG_SURFACE, TEXT_PRIMARY, TEXT_SECONDARY,
 } from "../../utils/colors";
+import { createGame } from "../../utils/gameUtils";
 
 // ─── Types ───────────────────────────────────────────────────
 interface ChallengeItem {
@@ -174,13 +174,21 @@ export default function RivalsScreen() {
         users: matchUsers, createdAt: serverTimestamp(),
         lastMessage: null, lastMessageAt: serverTimestamp(),
       });
-      // Create Cup Pong game immediately and route into it
+
+      // Create a Cup Pong game — acceptor goes first
+      const mySnap = await getDoc(doc(db, "users", auth.currentUser.uid));
+      const mySideVal = mySnap.exists() ? mySnap.data().side : "usc";
+      const sides: Record<string, string> = {
+        [auth.currentUser.uid]: mySideVal,
+        [challenge.fromUserId]: challenge.fromSide,
+      };
       const gameId = await createGame(
-        matchId,
-        "cup_pong",
+        matchId, "cup_pong",
         [auth.currentUser.uid, challenge.fromUserId],
-        { [auth.currentUser.uid]: mySide as any, [challenge.fromUserId]: challenge.fromSide }
+        sides as any
       );
+
+      // Navigate directly into the game
       router.push(`/game/cup-pong/${gameId}` as any);
     } catch (error) {
       console.error("Error accepting:", error);

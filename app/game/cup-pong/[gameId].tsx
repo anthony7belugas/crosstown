@@ -1,9 +1,11 @@
 // app/game/cup-pong/[gameId].tsx
-// Cup Pong — swipe upward to throw, parabolic arc animation, 6 cups per side
-// Turn-based: players alternate shots. First to sink all 6 opponent cups wins.
+// Cup Pong — drag to aim, release to throw. Pure skill — no RNG.
+// The drag vector determines exactly where the ball lands.
+// If the landing overlaps a cup's hit zone, it sinks.
+import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
-  doc, getDoc, onSnapshot, updateDoc, serverTimestamp,
+  doc, getDoc, onSnapshot, updateDoc,
 } from "firebase/firestore";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -13,7 +15,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../../firebaseConfig";
 import {
-  Game, CUP_LAYOUT, getCupCenter, INITIAL_CUPS, computeHit,
+  Game, CUPS_PER_SIDE, INITIAL_CUPS,
+  getCupCenter, checkCupHit, getCupPosition, CUP_HIT_RADIUS,
 } from "../../../utils/gameUtils";
 import {
   accentColor, accentBg, rivalColor,
@@ -23,30 +26,21 @@ import {
 
 const { width: SW, height: SH } = Dimensions.get("window");
 
-// ─── Constants ───────────────────────────────────────────────
-const CUP_AREA_H = 200;   // pixel height for each cup zone
+// ─── Layout constants ────────────────────────────────────────
 const CUP_AREA_W = SW - 48;
+const CUP_AREA_H = 180;
 const CUP_RADIUS = 26;
-const BALL_RADIUS = 14;
-const THROW_ZONE_Y = SH * 0.75; // y-center of throw zone
+const BALL_SIZE = 20;
+const THROW_SENSITIVITY = 1.8; // how much dx maps to horizontal offset
+const MIN_THROW_DY = -40;      // minimum upward drag to register throw
+const MIN_POWER = 0.35;        // minimum power to reach cups
 
-// ─── Cup rendering ───────────────────────────────────────────
-function CupView({
-  index,
-  standing,
-  highlighted,
-  side,
-  flipped = false,
-  areaW,
-  areaH,
+// ─── Cup component ───────────────────────────────────────────
+function Cup({
+  index, standing, targeted, side, flipped, areaW, areaH,
 }: {
-  index: number;
-  standing: boolean;
-  highlighted: boolean;
-  side: string;
-  flipped?: boolean;
-  areaW: number;
-  areaH: number;
+  index: number; standing: boolean; targeted: boolean;
+  side: string; flipped: boolean; areaW: number; areaH: number;
 }) {
   const pos = getCupCenter(index, areaW, areaH, flipped);
   const color = side === "usc" ? USC_RED : UCLA_BLUE;
@@ -61,23 +55,19 @@ function CupView({
         height: CUP_RADIUS * 2,
         borderRadius: CUP_RADIUS,
         backgroundColor: standing
-          ? highlighted
-            ? color
-            : `${color}55`
+          ? targeted ? color : `${color}44`
           : "transparent",
-        borderWidth: standing ? 2 : 1,
-        borderColor: standing ? color : `${color}33`,
+        borderWidth: standing ? 2.5 : 1,
+        borderColor: standing
+          ? targeted ? "#fff" : color
+          : `${color}22`,
         alignItems: "center",
         justifyContent: "center",
-        opacity: standing ? 1 : 0.3,
+        opacity: standing ? 1 : 0.25,
       }}
     >
-      {standing && (
-        <Text style={{ fontSize: 16 }}>🥤</Text>
-      )}
-      {!standing && (
-        <Text style={{ fontSize: 14, opacity: 0.4 }}>✗</Text>
-      )}
+      {standing && <Text style={{ fontSize: 18 }}>🥤</Text>}
+      {!standing && <Text style={{ fontSize: 12, color: TEXT_SECONDARY }}>✗</Text>}
     </View>
   );
 }
@@ -88,28 +78,48 @@ export default function CupPongScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  // ── State ──
   const [game, setGame] = useState<Game | null>(null);
   const [mySide, setMySide] = useState("usc");
-  const [myUid] = useState(auth.currentUser?.uid ?? "");
-  const [opponentName, setOpponentName] = useState("Rival");
-  const [opponentSide, setOpponentSide] = useState("ucla");
-
-  // Gesture / animation state
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragAngle, setDragAngle] = useState(0); // radians from vertical
-  const [dragPower, setDragPower] = useState(0);  // 0–1
-  const [targetCupIndex, setTargetCupIndex] = useState<number | null>(null);
+  const myUid = auth.currentUser?.uid ?? "";
+  const [opName, setOpName] = useState("Rival");
+  const [opSide, setOpSide] = useState("ucla");
   const [isAnimating, setIsAnimating] = useState(false);
-  const [lastResult, setLastResult] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
-  // Animated ball
-  const ballX = useRef(new Animated.Value(SW / 2)).current;
-  const ballY = useRef(new Animated.Value(THROW_ZONE_Y)).current;
-  const ballOpacity = useRef(new Animated.Value(0)).current;
+  // ── Refs for PanResponder access (avoids stale closures) ──
+  const gameRef = useRef<Game | null>(null);
+  const animatingRef = useRef(false);
 
-  // Trajectory dots
+  // ── Drag state (kept in refs for PanResponder) ──
+  const [isDragging, setIsDragging] = useState(false);
+  const [landingPreview, setLandingPreview] = useState<{ nx: number; ny: number } | null>(null);
   const [trajDots, setTrajDots] = useState<{ x: number; y: number }[]>([]);
+  const [targetedCup, setTargetedCup] = useState(-1);
 
+  // ── Ball animation ──
+  const ballTransX = useRef(new Animated.Value(0)).current;
+  const ballTransY = useRef(new Animated.Value(0)).current;
+  const ballOpacity = useRef(new Animated.Value(0)).current;
+  const ballBaseX = SW / 2 - BALL_SIZE / 2;
+
+  // ── Derived values ──
+  const opUid = game?.players?.find((p) => p !== myUid) ?? "";
+  const isMyTurn = game?.currentTurn === myUid && game?.status === "active";
+  const myCups = game?.cups?.[myUid] ?? INITIAL_CUPS();
+  const opCups = game?.cups?.[opUid] ?? INITIAL_CUPS();
+  const mySunk = myCups.filter((c) => !c).length;
+  const opSunk = opCups.filter((c) => !c).length;
+
+  // Keep refs in sync
+  useEffect(() => { gameRef.current = game; }, [game]);
+  useEffect(() => { animatingRef.current = isAnimating; }, [isAnimating]);
+
+  // ── Layout measurements ──
+  const cupZoneTopY = insets.top + 100; // top of opponent cup area
+  const throwZoneY = SH - insets.bottom - 140; // center of throw zone
+
+  // ── Load my side ──
   useEffect(() => {
     if (!myUid) return;
     getDoc(doc(db, "users", myUid)).then((s) => {
@@ -117,7 +127,7 @@ export default function CupPongScreen() {
     });
   }, [myUid]);
 
-  // Real-time game listener
+  // ── Real-time game listener ──
   useEffect(() => {
     if (!gameId) return;
     const unsub = onSnapshot(doc(db, "games", gameId), async (snap) => {
@@ -125,256 +135,287 @@ export default function CupPongScreen() {
       const g = { id: snap.id, ...snap.data() } as Game;
       setGame(g);
 
-      // Load opponent name if not loaded yet
-      const opUid = g.players.find((p) => p !== myUid);
-      if (opUid && opponentName === "Rival") {
-        const opSnap = await getDoc(doc(db, "users", opUid));
+      const oUid = g.players.find((p) => p !== myUid);
+      if (oUid && opName === "Rival") {
+        const opSnap = await getDoc(doc(db, "users", oUid));
         if (opSnap.exists()) {
-          setOpponentName(opSnap.data().name?.split(" ")[0] || "Rival");
-          setOpponentSide(opSnap.data().side || "ucla");
+          setOpName(opSnap.data().name?.split(" ")[0] || "Rival");
+          setOpSide(opSnap.data().side || "ucla");
         }
       }
 
-      // Navigate to result when game completes
       if (g.status === "complete") {
-        router.replace(`/game/result/${gameId}` as any);
+        setTimeout(() => router.replace(`/game/result/${gameId}` as any), 600);
       }
     });
     return () => unsub();
   }, [gameId, myUid]);
 
-  const isMyTurn = game?.currentTurn === myUid;
-  const myCups = (game?.cups?.[myUid] ?? INITIAL_CUPS());
-  const opCups = (game?.cups?.[game?.players?.find((p) => p !== myUid) ?? ""] ?? INITIAL_CUPS());
-  const opUid = game?.players?.find((p) => p !== myUid) ?? "";
+  // ── Calculate landing from drag vector ──
+  const calcLanding = useCallback((dx: number, dy: number) => {
+    const power = Math.min(Math.sqrt(dx * dx + dy * dy) / 150, 1);
+    if (power < MIN_POWER) return null;
 
-  // ─── Compute trajectory from drag delta ──────────────────
-  const computeTrajectory = useCallback((dx: number, dy: number) => {
-    if (dy >= 0) { setTrajDots([]); setTargetCupIndex(null); return; }
+    // Horizontal: dx maps to normalized X offset from center
+    const nx = 0.5 + (dx / CUP_AREA_W) * THROW_SENSITIVITY;
+    // Vertical: always lands in cup zone when power is sufficient
+    const ny = 0.5; // center of cup area (normalized)
+    return { nx: Math.max(0.05, Math.min(0.95, nx)), ny, power };
+  }, []);
 
+  // ── Build trajectory dots for preview ──
+  const buildTrajectory = useCallback((dx: number, dy: number) => {
+    const landing = calcLanding(dx, dy);
+    if (!landing) {
+      setTrajDots([]);
+      setLandingPreview(null);
+      setTargetedCup(-1);
+      return;
+    }
+
+    setLandingPreview(landing);
+
+    // Check which cup would be hit
+    const g = gameRef.current;
+    const oUid = g?.players?.find((p) => p !== myUid) ?? "";
+    const oCups = g?.cups?.[oUid] ?? INITIAL_CUPS();
+    const hitIdx = checkCupHit(landing.nx, landing.ny, oCups, true);
+    setTargetedCup(hitIdx);
+
+    // Generate arc dots from throw zone to landing point
     const startX = SW / 2;
-    const startY = THROW_ZONE_Y;
-    const power = Math.min(Math.sqrt(dx * dx + dy * dy) / 160, 1);
-    const angle = Math.atan2(dx, -dy); // angle from straight up
-
-    // Find which cup the trajectory points toward
-    const opponentCupAreaTop = insets.top + 60;
+    const startY = throwZoneY;
+    const endX = 24 + landing.nx * CUP_AREA_W;
+    const endY = cupZoneTopY + landing.ny * CUP_AREA_H;
+    const STEPS = 8;
     const dots: { x: number; y: number }[] = [];
-    const STEPS = 10;
 
     for (let i = 1; i <= STEPS; i++) {
       const t = i / STEPS;
-      const x = startX + Math.sin(angle) * power * 200 * t;
-      const arc = -200 * 4 * t * (1 - t); // parabola peak
-      const y = startY + (opponentCupAreaTop + CUP_AREA_H / 2 - startY) * t + arc;
+      const x = startX + (endX - startX) * t;
+      const arc = -140 * 4 * t * (1 - t) * landing.power;
+      const y = startY + (endY - startY) * t + arc;
       dots.push({ x, y });
     }
     setTrajDots(dots);
+  }, [calcLanding, cupZoneTopY, throwZoneY, myUid]);
 
-    // Determine target cup: find closest cup to trajectory endpoint
-    const endX = dots[STEPS - 1]?.x ?? startX;
-    let closest = 0;
-    let minDist = Infinity;
-    for (let i = 0; i < 6; i++) {
-      const pos = getCupCenter(i, CUP_AREA_W, CUP_AREA_H, true);
-      const absX = pos.x + 24; // offset for padding
-      const dist = Math.abs(absX - endX);
-      if (dist < minDist && opCups[i]) {
-        minDist = dist;
-        closest = i;
-      }
-    }
-    setTargetCupIndex(closest);
-    setDragPower(power);
-    setDragAngle(angle);
-  }, [opCups, insets.top]);
+  // ── Execute throw ──
+  const executeThrow = useCallback(async (dx: number, dy: number) => {
+    const g = gameRef.current;
+    if (!g || animatingRef.current) return;
+    if (g.currentTurn !== myUid || g.status !== "active") return;
 
-  // ─── Execute throw ────────────────────────────────────────
-  const executeThrow = useCallback(async () => {
-    if (!isMyTurn || isAnimating || targetCupIndex === null || !game) return;
-    if (!opCups[targetCupIndex]) return; // cup already sunk
+    const landing = calcLanding(dx, dy);
+    if (!landing) return;
+
+    const oUid = g.players.find((p) => p !== myUid) ?? "";
+    const oCups = [...(g.cups?.[oUid] ?? INITIAL_CUPS())];
+
+    // Determine hit by position — NO randomness
+    const hitIdx = checkCupHit(landing.nx, landing.ny, oCups, true);
 
     setIsAnimating(true);
     setTrajDots([]);
+    setLandingPreview(null);
+    setTargetedCup(-1);
 
-    const opponentCupAreaTop = insets.top + 60;
-    const cupPos = getCupCenter(targetCupIndex, CUP_AREA_W, CUP_AREA_H, true);
-    const endX = cupPos.x + 24;
-    const endY = opponentCupAreaTop + cupPos.y;
-    const startX = SW / 2;
-    const startY = THROW_ZONE_Y;
+    // Animate ball from throw zone to landing point
+    const endPixelX = 24 + landing.nx * CUP_AREA_W - SW / 2 + BALL_SIZE / 2;
+    const endPixelY = cupZoneTopY + landing.ny * CUP_AREA_H - throwZoneY;
+    const peakY = endPixelY - 140 * landing.power; // arc peak
 
-    // Determine hit before animation (gives ~60% success at full power)
-    const accuracy = 1 - (Math.abs(dragAngle) > 0.3 ? 0.4 : 0) - (1 - dragPower) * 0.3;
-    const hit = computeHit(Math.max(0, accuracy));
-
-    // Animate ball along parabolic arc
-    ballX.setValue(startX);
-    ballY.setValue(startY);
+    ballTransX.setValue(0);
+    ballTransY.setValue(0);
     ballOpacity.setValue(1);
 
-    const duration = 600;
+    const duration = 550;
+
     Animated.parallel([
-      Animated.timing(ballX, {
-        toValue: endX,
+      Animated.timing(ballTransX, {
+        toValue: endPixelX,
         duration,
         easing: Easing.linear,
-        useNativeDriver: false,
+        useNativeDriver: true,
       }),
       Animated.sequence([
-        Animated.timing(ballY, {
-          toValue: Math.min(startY, endY) - 160,
-          duration: duration * 0.45,
+        Animated.timing(ballTransY, {
+          toValue: peakY,
+          duration: duration * 0.4,
           easing: Easing.out(Easing.quad),
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
-        Animated.timing(ballY, {
-          toValue: endY,
-          duration: duration * 0.55,
+        Animated.timing(ballTransY, {
+          toValue: endPixelY,
+          duration: duration * 0.6,
           easing: Easing.in(Easing.quad),
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
       ]),
     ]).start(async () => {
-      // Fade ball out
+      // Fade ball
       Animated.timing(ballOpacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: false,
+        toValue: 0, duration: 250, useNativeDriver: true,
       }).start();
 
-      setLastResult(hit ? "🎯 Splash!" : "💨 Miss");
-      setTimeout(() => setLastResult(null), 1500);
+      // Show feedback
+      if (hitIdx >= 0) {
+        oCups[hitIdx] = false;
+        setFeedback("🎯 Splash!");
+      } else {
+        setFeedback("💨 Miss");
+      }
+      setTimeout(() => setFeedback(null), 1400);
 
       // Update Firestore
       try {
-        const newOpCups = [...opCups];
-        if (hit) newOpCups[targetCupIndex] = false;
-
-        const opWon = newOpCups.every((c) => !c); // all sunk = my win
-        const nextTurn = opUid;
-
-        const updateData: any = {
-          [`cups.${opUid}`]: newOpCups,
-          currentTurn: nextTurn,
+        const allSunk = oCups.every((c) => !c);
+        const update: any = {
+          [`cups.${oUid}`]: oCups,
+          currentTurn: oUid,
         };
-        if (opWon) {
-          updateData.status = "complete";
-          updateData.winner = myUid;
+        if (allSunk) {
+          update.status = "complete";
+          update.winner = myUid;
         }
-        await updateDoc(doc(db, "games", gameId as string), updateData);
+        await updateDoc(doc(db, "games", gameId as string), update);
       } catch (e) {
         console.error("Failed to update game:", e);
       }
 
       setIsAnimating(false);
-      setTargetCupIndex(null);
     });
-  }, [isMyTurn, isAnimating, targetCupIndex, game, opCups, opUid, dragAngle, dragPower, insets.top]);
+  }, [myUid, calcLanding, cupZoneTopY, throwZoneY, gameId, ballTransX, ballTransY, ballOpacity]);
 
-  // ─── PanResponder for throw gesture ──────────────────────
+  // ── PanResponder (uses refs for fresh state) ──
   const panRef = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
         setIsDragging(true);
       },
       onPanResponderMove: (_, g) => {
-        computeTrajectory(g.dx, g.dy);
+        if (g.dy < 0) { // only preview when dragging upward
+          buildTrajectory(g.dx, g.dy);
+        }
       },
       onPanResponderRelease: (_, g) => {
         setIsDragging(false);
-        if (g.dy < -30) {
-          executeThrow();
+        if (g.dy < MIN_THROW_DY) {
+          executeThrow(g.dx, g.dy);
         } else {
           setTrajDots([]);
-          setTargetCupIndex(null);
+          setLandingPreview(null);
+          setTargetedCup(-1);
         }
       },
     })
-  ).current;
+  );
 
-  // ─── Render ───────────────────────────────────────────────
+  // Rebuild PanResponder when callbacks change
+  useEffect(() => {
+    panRef.current = PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => setIsDragging(true),
+      onPanResponderMove: (_, g) => {
+        if (g.dy < 0) buildTrajectory(g.dx, g.dy);
+      },
+      onPanResponderRelease: (_, g) => {
+        setIsDragging(false);
+        if (g.dy < MIN_THROW_DY) {
+          executeThrow(g.dx, g.dy);
+        } else {
+          setTrajDots([]);
+          setLandingPreview(null);
+          setTargetedCup(-1);
+        }
+      },
+    });
+  }, [buildTrajectory, executeThrow]);
+
+  // ── Render ────────────────────────────────────────────────
   if (!game) {
     return (
-      <View style={[styles.root, { justifyContent: "center", alignItems: "center" }]}>
-        <Text style={{ color: TEXT_SECONDARY }}>Loading game…</Text>
+      <View style={[styles.root, { paddingTop: insets.top }]}>
+        <View style={styles.centered}>
+          <Text style={{ color: TEXT_SECONDARY }}>Loading game…</Text>
+        </View>
       </View>
     );
   }
 
   const accent = accentColor(mySide);
-  const opponentAccent = rivalColor(mySide);
+  const opAccent = rivalColor(mySide);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
 
       {/* ── Header ── */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={{ color: TEXT_SECONDARY, fontSize: 14 }}>← Back</Text>
+        <Pressable onPress={() => router.back()} hitSlop={12}>
+          <FontAwesome name="chevron-left" size={18} color={TEXT_SECONDARY} />
         </Pressable>
         <Text style={styles.headerTitle}>Cup Pong</Text>
-        <Text style={styles.turnLabel}>
-          {isMyTurn ? (
-            <Text style={{ color: accent }}>Your turn</Text>
-          ) : (
-            <Text style={{ color: TEXT_SECONDARY }}>{opponentName}'s turn</Text>
-          )}
+        <Text style={[styles.turnLabel, { color: isMyTurn ? accent : TEXT_SECONDARY }]}>
+          {isMyTurn ? "Your throw" : `${opName}'s turn`}
         </Text>
       </View>
 
       {/* ── Score strip ── */}
       <View style={styles.scoreStrip}>
         <View style={styles.scoreBlock}>
-          <Text style={[styles.scoreNum, { color: opponentAccent }]}>
-            {opCups.filter(Boolean).length}
-          </Text>
-          <Text style={styles.scoreLabel}>{opponentName}'s cups</Text>
+          <Text style={[styles.scoreNum, { color: opAccent }]}>{opSunk}</Text>
+          <Text style={styles.scoreLabel}>{opName} sunk</Text>
         </View>
         <Text style={styles.vsText}>VS</Text>
         <View style={styles.scoreBlock}>
-          <Text style={[styles.scoreNum, { color: accent }]}>
-            {myCups.filter(Boolean).length}
-          </Text>
-          <Text style={styles.scoreLabel}>Your cups</Text>
+          <Text style={[styles.scoreNum, { color: accent }]}>{mySunk}</Text>
+          <Text style={styles.scoreLabel}>You sunk</Text>
         </View>
       </View>
 
-      {/* ── Opponent cups (top, triangle pointing toward player) ── */}
+      {/* ── Opponent cups (flipped — front cup at bottom) ── */}
       <View style={styles.cupZone}>
-        <Text style={[styles.zoneLabel, { color: opponentAccent }]}>
-          {opponentName}'s cups
+        <Text style={[styles.zoneLabel, { color: opAccent }]}>
+          {opName.toUpperCase()}'S CUPS
         </Text>
         <View style={{ width: CUP_AREA_W, height: CUP_AREA_H, position: "relative" }}>
-          {[0, 1, 2, 3, 4, 5].map((i) => (
-            <CupView
-              key={i}
-              index={i}
-              standing={opCups[i]}
-              highlighted={targetCupIndex === i && isDragging}
-              side={opponentSide}
-              flipped
-              areaW={CUP_AREA_W}
-              areaH={CUP_AREA_H}
+          {Array.from({ length: 6 }, (_, i) => (
+            <Cup
+              key={i} index={i} standing={opCups[i]}
+              targeted={targetedCup === i && isDragging}
+              side={opSide} flipped areaW={CUP_AREA_W} areaH={CUP_AREA_H}
             />
           ))}
+          {/* Landing zone preview circle */}
+          {landingPreview && isDragging && (
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: landingPreview.nx * CUP_AREA_W - 20,
+                top: landingPreview.ny * CUP_AREA_H - 20,
+                width: 40, height: 40, borderRadius: 20,
+                borderWidth: 2, borderStyle: "dashed",
+                borderColor: targetedCup >= 0 ? accent : `${TEXT_SECONDARY}44`,
+              }}
+            />
+          )}
         </View>
       </View>
 
       {/* ── Trajectory dots ── */}
       {trajDots.map((d, i) => (
         <View
-          key={i}
-          pointerEvents="none"
+          key={i} pointerEvents="none"
           style={{
             position: "absolute",
-            left: d.x - 4,
-            top: d.y - 4,
-            width: 8,
-            height: 8,
-            borderRadius: 4,
-            backgroundColor: `${accent}${Math.round((i / trajDots.length) * 200).toString(16).padStart(2, "0")}`,
+            left: d.x - 3, top: d.y - 3,
+            width: 6, height: 6, borderRadius: 3,
+            backgroundColor: accent,
+            opacity: 0.15 + (i / trajDots.length) * 0.6,
           }}
         />
       ))}
@@ -384,167 +425,111 @@ export default function CupPongScreen() {
         pointerEvents="none"
         style={{
           position: "absolute",
-          width: BALL_RADIUS * 2,
-          height: BALL_RADIUS * 2,
-          borderRadius: BALL_RADIUS,
+          left: ballBaseX,
+          top: throwZoneY - BALL_SIZE / 2,
+          width: BALL_SIZE, height: BALL_SIZE, borderRadius: BALL_SIZE / 2,
           backgroundColor: "#fff",
           opacity: ballOpacity,
-          transform: [
-            { translateX: Animated.add(ballX, new Animated.Value(-BALL_RADIUS)) },
-            { translateY: Animated.add(ballY, new Animated.Value(-BALL_RADIUS)) },
-          ],
-          shadowColor: "#fff",
-          shadowOpacity: 0.6,
-          shadowRadius: 8,
+          transform: [{ translateX: ballTransX }, { translateY: ballTransY }],
+          shadowColor: "#fff", shadowOpacity: 0.5, shadowRadius: 6,
+          elevation: 4,
         }}
       />
 
-      {/* ── Result flash ── */}
-      {lastResult && (
-        <View style={styles.resultFlash}>
-          <Text style={styles.resultFlashText}>{lastResult}</Text>
+      {/* ── Feedback flash ── */}
+      {feedback && (
+        <View style={styles.feedback}>
+          <Text style={styles.feedbackText}>{feedback}</Text>
         </View>
       )}
 
-      {/* ── Middle divider ── */}
+      {/* ── Divider ── */}
       <View style={styles.divider} />
 
-      {/* ── My cups (bottom) ── */}
-      <View style={[styles.cupZone, { marginTop: 16 }]}>
+      {/* ── My cups (not flipped — front cup at top) ── */}
+      <View style={styles.cupZone}>
         <View style={{ width: CUP_AREA_W, height: CUP_AREA_H, position: "relative" }}>
-          {[0, 1, 2, 3, 4, 5].map((i) => (
-            <CupView
-              key={i}
-              index={i}
-              standing={myCups[i]}
-              highlighted={false}
-              side={mySide}
-              flipped={false}
-              areaW={CUP_AREA_W}
-              areaH={CUP_AREA_H}
+          {Array.from({ length: 6 }, (_, i) => (
+            <Cup
+              key={i} index={i} standing={myCups[i]}
+              targeted={false} side={mySide}
+              flipped={false} areaW={CUP_AREA_W} areaH={CUP_AREA_H}
             />
           ))}
         </View>
-        <Text style={[styles.zoneLabel, { color: accent }]}>Your cups</Text>
+        <Text style={[styles.zoneLabel, { color: accent }]}>YOUR CUPS</Text>
       </View>
 
       {/* ── Throw zone ── */}
       <View style={styles.throwArea}>
         {isMyTurn && !isAnimating ? (
           <View
-            {...panRef.panHandlers}
+            {...panRef.current.panHandlers}
             style={[styles.throwZone, {
-              borderColor: isDragging ? accent : `${accent}55`,
-              backgroundColor: isDragging ? accentBg(mySide, 0.15) : accentBg(mySide, 0.07),
+              borderColor: isDragging ? accent : `${accent}44`,
+              backgroundColor: isDragging ? accentBg(mySide, 0.15) : accentBg(mySide, 0.06),
             }]}
           >
-            <Text style={{ fontSize: 24 }}>⚾</Text>
+            <Text style={{ fontSize: 22 }}>🏓</Text>
             <Text style={[styles.throwHint, { color: accent }]}>
-              {isDragging ? "Release to throw!" : "Drag up to throw"}
+              {isDragging ? "Aim & release!" : "Drag up to throw"}
             </Text>
           </View>
         ) : (
-          <View style={[styles.throwZone, { borderColor: `${TEXT_SECONDARY}33` }]}>
-            <Text style={{ fontSize: 24, opacity: 0.4 }}>⚾</Text>
+          <View style={[styles.throwZone, { borderColor: `${TEXT_SECONDARY}22` }]}>
+            <Text style={{ fontSize: 22, opacity: 0.3 }}>🏓</Text>
             <Text style={[styles.throwHint, { color: TEXT_SECONDARY }]}>
-              {isAnimating ? "Flying…" : `Waiting for ${opponentName}…`}
+              {isAnimating ? "Throwing…" : `Waiting for ${opName}…`}
             </Text>
           </View>
         )}
       </View>
-
     </View>
   );
 }
 
 // ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: BG_PRIMARY,
-    alignItems: "center",
-  },
+  root: { flex: 1, backgroundColor: BG_PRIMARY, alignItems: "center" },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   header: {
-    width: "100%",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    width: "100%", flexDirection: "row", alignItems: "center",
+    justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 10,
   },
-  backBtn: { width: 60 },
-  headerTitle: {
-    color: TEXT_PRIMARY,
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  turnLabel: { width: 100, textAlign: "right", fontSize: 13 },
+  headerTitle: { color: TEXT_PRIMARY, fontSize: 18, fontWeight: "700" },
+  turnLabel: { fontSize: 13, fontWeight: "600", width: 100, textAlign: "right" },
   scoreStrip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-    width: "100%",
-    justifyContent: "space-between",
+    flexDirection: "row", alignItems: "center",
+    justifyContent: "space-between", width: "100%",
+    paddingHorizontal: 32, paddingVertical: 6,
   },
   scoreBlock: { alignItems: "center", width: 80 },
-  scoreNum: { fontSize: 32, fontWeight: "800" },
-  scoreLabel: { color: TEXT_SECONDARY, fontSize: 12, marginTop: 2 },
-  vsText: { color: TEXT_SECONDARY, fontSize: 16, fontWeight: "700" },
-  cupZone: {
-    width: "100%",
-    paddingHorizontal: 24,
-    alignItems: "center",
-  },
+  scoreNum: { fontSize: 30, fontWeight: "900" },
+  scoreLabel: { color: TEXT_SECONDARY, fontSize: 11, marginTop: 2 },
+  vsText: { color: TEXT_SECONDARY, fontSize: 15, fontWeight: "700" },
+  cupZone: { width: "100%", paddingHorizontal: 24, alignItems: "center" },
   zoneLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    marginBottom: 8,
-    marginTop: 4,
+    fontSize: 10, fontWeight: "700", letterSpacing: 1.5,
+    marginBottom: 6, marginTop: 4,
   },
   divider: {
-    width: SW - 48,
-    height: 1,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    marginVertical: 8,
+    width: SW - 48, height: 1,
+    backgroundColor: "rgba(255,255,255,0.06)", marginVertical: 6,
   },
   throwArea: {
-    flex: 1,
-    width: "100%",
-    paddingHorizontal: 24,
-    paddingTop: 8,
-    alignItems: "center",
-    justifyContent: "center",
+    flex: 1, width: "100%", paddingHorizontal: 24,
+    paddingTop: 6, alignItems: "center", justifyContent: "center",
   },
   throwZone: {
-    width: "100%",
-    height: 100,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderStyle: "dashed",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
+    width: "100%", height: 90, borderRadius: 20,
+    borderWidth: 2, borderStyle: "dashed",
+    alignItems: "center", justifyContent: "center", gap: 4,
   },
-  throwHint: {
-    fontSize: 13,
-    fontWeight: "600",
+  throwHint: { fontSize: 13, fontWeight: "600" },
+  feedback: {
+    position: "absolute", top: "42%", alignSelf: "center",
+    backgroundColor: "rgba(0,0,0,0.8)",
+    paddingHorizontal: 24, paddingVertical: 12, borderRadius: 16, zIndex: 99,
   },
-  resultFlash: {
-    position: "absolute",
-    top: "45%",
-    alignSelf: "center",
-    backgroundColor: "rgba(0,0,0,0.75)",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 16,
-    zIndex: 99,
-  },
-  resultFlashText: {
-    color: TEXT_PRIMARY,
-    fontSize: 22,
-    fontWeight: "800",
-  },
+  feedbackText: { color: TEXT_PRIMARY, fontSize: 22, fontWeight: "800" },
 });
