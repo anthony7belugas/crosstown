@@ -1,7 +1,6 @@
 // app/game/cup-pong/[gameId].tsx
 // Cup Pong — flick upward to throw. No guides, no preview.
-// Swipe angle = left/right aim. Swipe speed = how far the ball reaches.
-// Hit detection checks if the ball lands near a standing cup.
+// dx = left/right aim. dy magnitude = throw power (how far ball reaches).
 import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
@@ -24,14 +23,13 @@ import {
 
 const { width: SW, height: SH } = Dimensions.get("window");
 
-// ─── Layout ──────────────────────────────────────────────────
 const CUP_AREA_W = SW - 48;
 const CUP_AREA_H = 190;
-const CUP_R = 24;        // cup circle radius in pixels
+const CUP_R = 24;
 const BALL_SIZE = 18;
-const MIN_THROW_SPEED = 500;  // min velocity to register a throw
+const MIN_DY = -30; // minimum upward drag in points to count as a throw
 
-// ─── Cup component ───────────────────────────────────────────
+// ─── Cup ─────────────────────────────────────────────────────
 function Cup({ index, standing, side, flipped, areaW, areaH }: {
   index: number; standing: boolean; side: string;
   flipped: boolean; areaW: number; areaH: number;
@@ -69,31 +67,25 @@ export default function CupPongScreen() {
   const [isAnimating, setIsAnimating] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  // Refs for fresh state inside PanResponder
   const gameRef = useRef<Game | null>(null);
   const animRef = useRef(false);
 
-  // Ball animation
   const ballX = useRef(new Animated.Value(0)).current;
   const ballY = useRef(new Animated.Value(0)).current;
   const ballOpacity = useRef(new Animated.Value(0)).current;
   const ballStartX = SW / 2 - BALL_SIZE / 2;
 
-  // Derived
   const opUid = game?.players?.find((p) => p !== myUid) ?? "";
   const isMyTurn = game?.currentTurn === myUid && game?.status === "active";
   const myCups = game?.cups?.[myUid] ?? INITIAL_CUPS();
   const opCups = game?.cups?.[opUid] ?? INITIAL_CUPS();
 
-  // Keep refs current
   useEffect(() => { gameRef.current = game; }, [game]);
   useEffect(() => { animRef.current = isAnimating; }, [isAnimating]);
 
-  // Layout positions
   const opCupAreaTop = insets.top + 95;
   const throwZoneY = SH - insets.bottom - 130;
 
-  // Load side
   useEffect(() => {
     if (!myUid) return;
     getDoc(doc(db, "users", myUid)).then((s) => {
@@ -101,7 +93,6 @@ export default function CupPongScreen() {
     });
   }, [myUid]);
 
-  // Real-time game listener
   useEffect(() => {
     if (!gameId) return;
     const unsub = onSnapshot(doc(db, "games", gameId), async (snap) => {
@@ -123,42 +114,36 @@ export default function CupPongScreen() {
     return () => unsub();
   }, [gameId, myUid]);
 
-  // ── The throw ──────────────────────────────────────────────
-  const doThrow = useCallback((vx: number, vy: number) => {
+  // ── Throw using dx/dy displacement ─────────────────────────
+  const doThrow = useCallback((dx: number, dy: number) => {
     const g = gameRef.current;
     if (!g || animRef.current) return;
     if (g.currentTurn !== myUid || g.status !== "active") return;
-
-    const speed = Math.sqrt(vx * vx + vy * vy);
-    if (speed < MIN_THROW_SPEED || vy > -200) return; // not a real upward flick
+    if (dy > MIN_DY) return; // not dragged upward enough
 
     setIsAnimating(true);
 
-    // ── Map swipe to landing position (normalized 0-1) ──
-    // Angle from straight up: positive = right, negative = left
-    const angle = Math.atan2(vx, -vy);
+    // ── Map displacement to landing position ──
+    // Horizontal: dx in pixels → normalized 0-1 across cup area
+    // A dx of 0 = center. dx of ±(SW/3) = edges.
+    const rawNx = 0.5 + (dx / (SW * 0.6));
+    const landNx = Math.max(0.1, Math.min(0.9, rawNx));
 
-    // Horizontal: angle determines left/right, clamped to cup area
-    const rawNx = 0.5 + Math.sin(angle) * 0.5;
-    const landNx = Math.max(0.12, Math.min(0.88, rawNx));
+    // Vertical: how far upward they dragged → how deep the ball goes
+    // dy of -30 = gentle, barely reaches front cup (ny ~0.7)
+    // dy of -200+ = hard throw, reaches back row (ny ~0.2)
+    const power = Math.min(Math.abs(dy) / 180, 1); // 0-1
+    const landNy = 0.75 - power * 0.55;
 
-    // Vertical: speed determines depth into cup area
-    // Fast = reaches back row (ny ~0.25), slow = front cup (ny ~0.75)
-    const maxSpeed = 2200;
-    const normSpeed = Math.min(speed / maxSpeed, 1);
-    const landNy = 0.72 - normSpeed * 0.50;
-
-    // ── Hit detection — opponent cups use flipped=false ──
-    // (3-cup row at top = farthest, single cup at bottom = closest)
+    // ── Hit detection — opponent cups flipped=false ──
     const oUid = g.players.find((p) => p !== myUid) ?? "";
     const oCups = [...(g.cups?.[oUid] ?? INITIAL_CUPS())];
     const hitIdx = checkCupHit(landNx, landNy, oCups, false);
 
-    // ── Animate ball ──
-    // Landing position in pixels relative to the cup area
-    const endPixelX = 24 + landNx * CUP_AREA_W - ballStartX;
-    const endPixelY = opCupAreaTop + landNy * CUP_AREA_H - throwZoneY;
-    const arcPeak = endPixelY - 100 - normSpeed * 60;
+    // ── Animate ──
+    const endPxX = 24 + landNx * CUP_AREA_W - ballStartX;
+    const endPxY = opCupAreaTop + landNy * CUP_AREA_H - throwZoneY;
+    const arcPeak = endPxY - 80 - power * 50;
 
     ballX.setValue(0);
     ballY.setValue(0);
@@ -166,26 +151,24 @@ export default function CupPongScreen() {
 
     Animated.parallel([
       Animated.timing(ballX, {
-        toValue: endPixelX, duration: 500,
+        toValue: endPxX, duration: 480,
         easing: Easing.linear, useNativeDriver: true,
       }),
       Animated.sequence([
         Animated.timing(ballY, {
-          toValue: arcPeak, duration: 200,
+          toValue: arcPeak, duration: 190,
           easing: Easing.out(Easing.quad), useNativeDriver: true,
         }),
         Animated.timing(ballY, {
-          toValue: endPixelY, duration: 300,
+          toValue: endPxY, duration: 290,
           easing: Easing.in(Easing.quad), useNativeDriver: true,
         }),
       ]),
     ]).start(async () => {
-      // Fade ball
       Animated.timing(ballOpacity, {
         toValue: 0, duration: 200, useNativeDriver: true,
       }).start();
 
-      // Feedback
       if (hitIdx >= 0) {
         oCups[hitIdx] = false;
         setFeedback("🎯 Splash!");
@@ -194,7 +177,6 @@ export default function CupPongScreen() {
       }
       setTimeout(() => setFeedback(null), 1200);
 
-      // Update Firestore
       try {
         const allSunk = oCups.every((c) => !c);
         const update: any = { [`cups.${oUid}`]: oCups, currentTurn: oUid };
@@ -206,22 +188,21 @@ export default function CupPongScreen() {
     });
   }, [myUid, gameId, opCupAreaTop, throwZoneY, ballStartX, ballX, ballY, ballOpacity]);
 
-  // ── PanResponder — rebuilt when doThrow changes ──
+  // ── PanResponder ──
   const panRef = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
-    onPanResponderRelease: (_, g) => doThrow(g.vx, g.vy),
+    onPanResponderRelease: (_, g) => doThrow(g.dx, g.dy),
   }));
 
   useEffect(() => {
     panRef.current = PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 10,
-      onPanResponderRelease: (_, g) => doThrow(g.vx, g.vy),
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderRelease: (_, g) => doThrow(g.dx, g.dy),
     });
   }, [doThrow]);
 
-  // ── Render ────────────────────────────────────────────────
   if (!game) {
     return (
       <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -239,8 +220,6 @@ export default function CupPongScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-
-      {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <FontAwesome name="chevron-left" size={18} color={TEXT_SECONDARY} />
@@ -251,7 +230,6 @@ export default function CupPongScreen() {
         </Text>
       </View>
 
-      {/* Score */}
       <View style={styles.scoreRow}>
         <View style={styles.scoreCol}>
           <Text style={[styles.scoreNum, { color: accent }]}>{opSunk}</Text>
@@ -264,7 +242,7 @@ export default function CupPongScreen() {
         </View>
       </View>
 
-      {/* Opponent cups — flipped=false: 3-row at top, single cup at bottom */}
+      {/* Opponent cups: 3-row at top, single cup at bottom (closest to you) */}
       <View style={styles.cupZone}>
         <Text style={[styles.zoneLabel, { color: opAccent }]}>{opName.toUpperCase()}</Text>
         <View style={{ width: CUP_AREA_W, height: CUP_AREA_H, position: "relative" }}>
@@ -276,7 +254,6 @@ export default function CupPongScreen() {
         </View>
       </View>
 
-      {/* Ball */}
       <Animated.View pointerEvents="none" style={{
         position: "absolute", left: ballStartX, top: throwZoneY - BALL_SIZE / 2,
         width: BALL_SIZE, height: BALL_SIZE, borderRadius: BALL_SIZE / 2,
@@ -285,17 +262,15 @@ export default function CupPongScreen() {
         shadowColor: "#fff", shadowOpacity: 0.6, shadowRadius: 8, elevation: 4,
       }} />
 
-      {/* Feedback */}
       {feedback && (
         <View style={styles.fbBox}>
           <Text style={styles.fbText}>{feedback}</Text>
         </View>
       )}
 
-      {/* Divider */}
       <View style={styles.divider} />
 
-      {/* My cups — flipped=true: single cup at top, 3-row at bottom */}
+      {/* Your cups: single cup at top, 3-row at bottom */}
       <View style={styles.cupZone}>
         <View style={{ width: CUP_AREA_W, height: CUP_AREA_H, position: "relative" }}>
           {Array.from({ length: 6 }, (_, i) => (
@@ -307,7 +282,6 @@ export default function CupPongScreen() {
         <Text style={[styles.zoneLabel, { color: accent }]}>YOU</Text>
       </View>
 
-      {/* Throw zone */}
       <View style={styles.throwArea}>
         {isMyTurn && !isAnimating ? (
           <View {...panRef.current.panHandlers}
