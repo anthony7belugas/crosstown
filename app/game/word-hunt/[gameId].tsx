@@ -23,7 +23,7 @@ const GRID_PAD = 24;
 const CELL_GAP = 8;
 const GRID_SIZE = SW - GRID_PAD * 2;
 const CELL_SIZE = (GRID_SIZE - CELL_GAP * 3) / 4;
-const TURN_SECONDS = 90;
+const TURN_SECONDS = 60;
 
 export default function WordHuntScreen() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>();
@@ -265,6 +265,7 @@ export default function WordHuntScreen() {
     return PanResponder.create({
       onStartShouldSetPanResponder: () => turnActiveRef.current && !submittedRef.current,
       onMoveShouldSetPanResponder: () => turnActiveRef.current && !submittedRef.current,
+
       onPanResponderGrant: (e) => {
         const { pageX, pageY } = e.nativeEvent;
         const cell = getCellAtPoint(pageX, pageY);
@@ -274,17 +275,43 @@ export default function WordHuntScreen() {
           setCurrentWord(boardRef.current[cell] ?? "");
         }
       },
+
       onPanResponderMove: (e) => {
-        const { pageX, pageY } = e.nativeEvent;
-        const cell = getCellAtPoint(pageX, pageY);
-        if (cell < 0) return;
         const path = pathRef.current;
-        if (path.includes(cell)) return;
-        if (!isAdjacent(path[path.length - 1], cell)) return;
-        pathRef.current = [...path, cell];
-        setSelectedPath([...pathRef.current]);
-        setCurrentWord(pathRef.current.map((i) => boardRef.current[i]).join(""));
+        if (path.length === 0) return;
+        const last = path[path.length - 1];
+
+        // Only consider cells ADJACENT to the last cell in the path
+        const { pageX, pageY } = e.nativeEvent;
+        const relX = pageX - gridPageOffset.current.x;
+        const relY = pageY - gridPageOffset.current.y;
+
+        let bestCell = -1;
+        let bestDist = Infinity;
+
+        for (let i = 0; i < 16; i++) {
+          if (path.includes(i)) continue;       // already used
+          if (!isAdjacent(last, i)) continue;    // must be neighbor
+          const c = cellLayouts.current[i];
+          if (!c || c.w === 0) continue;
+          const cx = c.x + c.w / 2;
+          const cy = c.y + c.h / 2;
+          const dist = Math.sqrt((relX - cx) ** 2 + (relY - cy) ** 2);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestCell = i;
+          }
+        }
+
+        // Must be reasonably close to the cell center to register
+        const maxDist = CELL_SIZE * 0.65;
+        if (bestCell >= 0 && bestDist < maxDist) {
+          pathRef.current = [...path, bestCell];
+          setSelectedPath([...pathRef.current]);
+          setCurrentWord(pathRef.current.map((i) => boardRef.current[i]).join(""));
+        }
       },
+
       onPanResponderRelease: () => {
         const word = pathRef.current.map((i) => boardRef.current[i]).join("").toUpperCase();
         pathRef.current = [];
@@ -387,7 +414,7 @@ export default function WordHuntScreen() {
             Ready?
           </Text>
           <Text style={{ color: TEXT_SECONDARY, fontSize: 14, textAlign: "center", paddingHorizontal: 40, marginBottom: 28, lineHeight: 21 }}>
-            Find as many words as you can in 90 seconds.{"\n"}Trace through adjacent letters.{"\n"}The timer starts when you tap Start.
+            Find as many words as you can in 60 seconds.{"\n"}Trace through adjacent letters.{"\n"}The timer starts when you tap Start.
           </Text>
           <Pressable
             style={[styles.startBtn, { backgroundColor: accent }]}
