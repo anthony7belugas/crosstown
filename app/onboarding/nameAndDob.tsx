@@ -41,7 +41,7 @@ export default function NameAndDobScreen() {
     if (age < 18) { Alert.alert("Age Requirement", "You must be 18 or older to use CrossTown."); return; }
 
     router.push({
-      pathname: "/onboarding/genderPrefs",
+      pathname: "/onboarding/photos",
       params: { side, name: name.trim(), dob: `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`, age: age.toString() },
     });
   };

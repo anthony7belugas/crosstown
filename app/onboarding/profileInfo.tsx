@@ -23,8 +23,7 @@ const YEARS = ["2026", "2027", "2028", "2029", "2030", "2031"];
 
 export default function ProfileInfoScreen() {
   const params = useLocalSearchParams<{
-    side: string; name: string; dob: string; age: string;
-    gender: string; showMe: string; photoUris: string;
+    side: string; name: string; dob: string; age: string; photoUris: string;
   }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -68,8 +67,6 @@ export default function ProfileInfoScreen() {
         name: params.name,
         dateOfBirth: params.dob,
         age: parseInt(params.age),
-        gender: params.gender,
-        showMe: params.showMe,
         photos: photoUrls,
         major,
         gradYear,
@@ -150,7 +147,7 @@ export default function ProfileInfoScreen() {
             {loading ? (
               <><ActivityIndicator color="#1E293B" /><Text style={styles.finishText}>Creating Profile...</Text></>
             ) : (
-              <><Text style={styles.finishText}>Start Swiping</Text><FontAwesome name="heart" size={18} color="#1E293B" /></>
+              <><Text style={styles.finishText}>Enter the Rivalry</Text><FontAwesome name="trophy" size={18} color="#1E293B" /></>
             )}
           </Pressable>
         </View>

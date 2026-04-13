@@ -18,7 +18,7 @@ import { MoreOptionsMenu } from "../../components/MoreOptionsMenu";
 import { ReportModal } from "../../components/ReportModal";
 import { auth, db } from "../../firebaseConfig";
 import { blockUser, reportUser, ReportReason } from "../../utils/blockUtils";
-import { containsBannedWords } from "../../utils/contentFilter";
+import { passesContentFilter } from "../../utils/contentFilter";
 import { accentColor, accentBg, schoolColor, BG_PRIMARY, BG_SURFACE, TEXT_PRIMARY, TEXT_SECONDARY } from "../../utils/colors";
 import { createGame, GameType } from "../../utils/gameUtils";
 
@@ -132,7 +132,7 @@ export default function ChatDetailScreen() {
   const handleSend = async () => {
     if (!inputText.trim() || !matchId || !auth.currentUser || sending) return;
     const text = inputText.trim();
-    if (containsBannedWords(text)) { setInputText(""); return; }
+    if (!passesContentFilter(text)) { setInputText(""); return; }
     setSending(true);
     setInputText("");
     try {
@@ -320,8 +320,8 @@ export default function ChatDetailScreen() {
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
           ListEmptyComponent={
             <View style={styles.emptyChat}>
-              <Text style={styles.emptyChatEmoji}>🔥</Text>
-              <Text style={styles.emptyChatTitle}>You matched with {otherUser?.name}!</Text>
+              <Text style={styles.emptyChatEmoji}>⚔️</Text>
+              <Text style={styles.emptyChatTitle}>Challenge accepted — game on with {otherUser?.name}!</Text>
               <Text style={styles.emptyChatSubtitle}>Say something to your rival</Text>
             </View>
           }

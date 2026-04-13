@@ -106,10 +106,6 @@ export default function DuelsScreen() {
 
       // Fetch rival profiles
       const rivalSide = userData.side === "usc" ? "ucla" : "usc";
-      let genderFilter: string[] = [];
-      if (userData.showMe === "men") genderFilter = ["man"];
-      else if (userData.showMe === "women") genderFilter = ["woman"];
-      else genderFilter = ["man", "woman", "nonbinary"];
 
       const rivalsSnap = await getDocs(
         query(collection(db, "users"), where("side", "==", rivalSide), where("profileCompleted", "==", true))
@@ -118,11 +114,6 @@ export default function DuelsScreen() {
       rivalsSnap.docs.forEach((d) => {
         if (excludedIds.has(d.id)) return;
         const data = d.data();
-        if (!genderFilter.includes(data.gender)) return;
-        if (data.showMe !== "everyone") {
-          if (data.showMe === "men" && userData.gender !== "man") return;
-          if (data.showMe === "women" && userData.gender !== "woman") return;
-        }
         eligible.push({
           uid: d.id, name: data.name || "Unknown", age: data.age || 0,
           side: data.side, photos: data.photos || [], major: data.major || "",
