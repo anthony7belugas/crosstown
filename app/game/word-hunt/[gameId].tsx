@@ -234,16 +234,28 @@ export default function WordHuntScreen() {
     }
   };
 
-  // ── Cell hit detection ──
+  // ── Cell hit detection — distance to center, not bounds ──
+  // This makes diagonal tracing much easier because the diagonal
+  // cell's center is closer than the vertical/horizontal neighbor
   const getCellAtPoint = useCallback((pageX: number, pageY: number): number => {
     const relX = pageX - gridPageOffset.current.x;
     const relY = pageY - gridPageOffset.current.y;
+    let closest = -1;
+    let closestDist = Infinity;
+
     for (let i = 0; i < 16; i++) {
       const c = cellLayouts.current[i];
-      if (!c) continue;
-      if (relX >= c.x && relX <= c.x + c.w && relY >= c.y && relY <= c.y + c.h) return i;
+      if (!c || c.w === 0) continue;
+      const cx = c.x + c.w / 2;
+      const cy = c.y + c.h / 2;
+      const dist = Math.sqrt((relX - cx) ** 2 + (relY - cy) ** 2);
+      // Only consider cells within a reasonable radius (cell size)
+      if (dist < c.w * 0.75 && dist < closestDist) {
+        closestDist = dist;
+        closest = i;
+      }
     }
-    return -1;
+    return closest;
   }, []);
 
   // ── PanResponder — rebuilt when getCellAtPoint changes ──
