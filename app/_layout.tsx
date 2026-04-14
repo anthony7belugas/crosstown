@@ -1,15 +1,28 @@
 // app/_layout.tsx
-// Root layout with auth state routing, push notification handling,
-// and token refresh on every launch — adapted from Besties
+// Root layout with auth state routing, OTA update check,
+// push notification handling, and branded loading screen
 import { Stack, useRouter } from "expo-router";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import * as Notifications from "expo-notifications";
+import * as Updates from "expo-updates";
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import {
+  Animated,
+  Easing,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { auth, db } from "../firebaseConfig";
 import { refreshPushToken, removePushToken } from "../utils/pushNotifications";
+
+// ─── Colors (inline to avoid circular deps in root layout) ───
+const BG_PRIMARY = "#0F172A";
+const USC_RED = "#DC2626";
+const UCLA_BLUE = "#2563EB";
+const NEUTRAL_ACCENT = "#E2E8F0";
 
 export default function RootLayout() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
@@ -21,9 +34,80 @@ export default function RootLayout() {
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
 
+  // Loading screen animations
+  const spinAnim = useRef(new Animated.Value(0)).current;
+  const vsGlow = useRef(new Animated.Value(0)).current;
+  const fadeIn = useRef(new Animated.Value(0)).current;
+
+  // ════════════════════════════════════════════
+  //  OTA UPDATE CHECK — Silent auto-restart
+  //  Ported from Besties — checks on every launch
+  // ════════════════════════════════════════════
+  useEffect(() => {
+    async function checkForOTAUpdate() {
+      // Only check in production builds, not during development
+      if (__DEV__) {
+        return;
+      }
+
+      try {
+        const update = await Updates.checkForUpdateAsync();
+
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          // Silent restart — user won't notice (takes 1-2 seconds)
+          await Updates.reloadAsync();
+        }
+      } catch (error) {
+        // Silently fail — don't disrupt user experience
+        console.log("[OTA] Update check failed:", error);
+      }
+    }
+
+    checkForOTAUpdate();
+  }, []);
+
   // Mark layout as ready
   useEffect(() => {
     setIsLayoutReady(true);
+  }, []);
+
+  // Start loading animations
+  useEffect(() => {
+    // Fade in
+    Animated.timing(fadeIn, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+
+    // Spinner rotation
+    Animated.loop(
+      Animated.timing(spinAnim, {
+        toValue: 1,
+        duration: 1500,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
+
+    // VS glow pulse (matches welcome screen)
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(vsGlow, {
+          toValue: 1,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(vsGlow, {
+          toValue: 0,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
   }, []);
 
   // Auth state listener
@@ -69,11 +153,9 @@ export default function RootLayout() {
 
   /**
    * Route to the correct screen when user taps a push notification.
-   * Notification data.type determines the destination.
    */
   const handleNotificationNavigation = (data: any) => {
     if (!data || !data.type) {
-      // Default: go to Rivals tab where incoming challenges live
       router.push("/(tabs)/rivals" as any);
       return;
     }
@@ -81,12 +163,10 @@ export default function RootLayout() {
     try {
       switch (data.type) {
         case "challenge_received":
-          // Someone challenged the user — go to Rivals tab (incoming challenges)
           router.push("/(tabs)/rivals" as any);
           break;
 
         case "challenge_accepted":
-          // Rival accepted — go to the game or chat
           if (data.showdownId) {
             router.push(`/chat/${data.showdownId}` as any);
           } else {
@@ -95,7 +175,6 @@ export default function RootLayout() {
           break;
 
         case "game_turn":
-          // It's your turn to play — go to the game
           if (data.gameId && data.gameType === "cup_pong") {
             router.push(`/game/cup-pong/${data.gameId}` as any);
           } else if (data.gameId && data.gameType === "word_hunt") {
@@ -106,7 +185,6 @@ export default function RootLayout() {
           break;
 
         case "game_result":
-          // Game finished — show result
           if (data.gameId) {
             router.push(`/game/result/${data.gameId}` as any);
           } else {
@@ -115,7 +193,6 @@ export default function RootLayout() {
           break;
 
         case "message":
-          // New chat message — go to the chat
           if (data.showdownId) {
             router.push(`/chat/${data.showdownId}` as any);
           } else {
@@ -124,7 +201,6 @@ export default function RootLayout() {
           break;
 
         case "scoreboard":
-          // Scoreboard update (e.g. "UCLA is closing the gap!")
           router.push("/(tabs)/scoreboard" as any);
           break;
 
@@ -142,8 +218,6 @@ export default function RootLayout() {
   // ────────────────────────────────────────────
   useEffect(() => {
     if (user && user.emailVerified) {
-      // Refresh push token on every app launch for this authenticated user.
-      // Handles OTA updates, token rotation, stale tokens.
       refreshPushToken().catch((e) =>
         console.error("[Push] Token refresh failed:", e)
       );
@@ -154,19 +228,17 @@ export default function RootLayout() {
   //  Auth routing — run once per app launch
   // ────────────────────────────────────────────
   useEffect(() => {
-    if (user === undefined) return; // Still loading
+    if (user === undefined) return;
     if (hasNavigated) return;
     if (!isLayoutReady) return;
 
     const handleNavigation = async () => {
-      // Not logged in → welcome screen
       if (!user) {
         setHasNavigated(true);
         router.replace("/");
         return;
       }
 
-      // Logged in but email not verified → waiting screen
       if (!user.emailVerified) {
         setHasNavigated(true);
         const email = user.email || "";
@@ -178,12 +250,10 @@ export default function RootLayout() {
         return;
       }
 
-      // Logged in and verified → check if profile is completed
       try {
         const userDoc = await getDoc(doc(db, "users", user.uid));
         const userData = userDoc.exists() ? userDoc.data() : null;
 
-        // Check if account is deleted or suspended
         if (userData?.accountStatus === "deleted" || userData?.isSuspended) {
           await removePushToken();
           await auth.signOut();
@@ -193,7 +263,6 @@ export default function RootLayout() {
         }
 
         if (userData?.profileCompleted === true) {
-          // Check notification prompt before routing to main app
           if (!userData.notificationPromptShown) {
             const { status } = await Notifications.getPermissionsAsync();
             const email = user.email || "";
@@ -216,7 +285,6 @@ export default function RootLayout() {
             router.replace("/(tabs)/duels");
           }
         } else {
-          // Profile not complete → continue onboarding
           const email = user.email || "";
           const side = email.endsWith("@usc.edu") ? "usc" : "ucla";
           setHasNavigated(true);
@@ -235,28 +303,86 @@ export default function RootLayout() {
     handleNavigation();
   }, [user, hasNavigated, isLayoutReady]);
 
-  // ────────────────────────────────────────────
-  //  Token cleanup + reset on logout
-  // ────────────────────────────────────────────
+  // Reset on logout
   useEffect(() => {
     if (user === null) {
       setHasNavigated(false);
     }
   }, [user]);
 
-  // Loading state
+  // ════════════════════════════════════════════
+  //  LOADING SCREEN — CrossTown branded
+  //  Matches the welcome screen: dark arena,
+  //  red/blue split, pulsing VS, spinning loader
+  // ════════════════════════════════════════════
   if (user === undefined) {
+    const spin = spinAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: ["0deg", "360deg"],
+    });
+
+    const vsScale = vsGlow.interpolate({
+      inputRange: [0, 1],
+      outputRange: [1, 1.08],
+    });
+
+    const vsOpacity = vsGlow.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.6, 1],
+    });
+
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <View
-          style={{
-            flex: 1,
-            justifyContent: "center",
-            alignItems: "center",
-            backgroundColor: "#0F172A",
-          }}
-        >
-          <ActivityIndicator size="large" color="#E2E8F0" />
+        <View style={loadingStyles.container}>
+          {/* Red/blue split background — matches welcome screen */}
+          <View style={loadingStyles.splitBackground}>
+            <View
+              style={[loadingStyles.splitHalf, { backgroundColor: USC_RED }]}
+            />
+            <View
+              style={[loadingStyles.splitHalf, { backgroundColor: UCLA_BLUE }]}
+            />
+          </View>
+
+          {/* Dark overlay */}
+          <View style={loadingStyles.overlay} />
+
+          {/* Diagonal line — matches welcome screen */}
+          <View style={loadingStyles.diagonalContainer}>
+            <View style={loadingStyles.diagonal} />
+          </View>
+
+          {/* Content */}
+          <Animated.View
+            style={[loadingStyles.content, { opacity: fadeIn }]}
+          >
+            {/* Pulsing VS — same animation as welcome screen */}
+            <Animated.View
+              style={[
+                loadingStyles.vsContainer,
+                { transform: [{ scale: vsScale }] },
+              ]}
+            >
+              <Animated.Text
+                style={[loadingStyles.vsText, { opacity: vsOpacity }]}
+              >
+                VS
+              </Animated.Text>
+            </Animated.View>
+
+            {/* Brand name */}
+            <Text style={loadingStyles.title}>CrossTown</Text>
+
+            {/* Spinning loader ring */}
+            <Animated.View
+              style={[
+                loadingStyles.spinner,
+                { transform: [{ rotate: spin }] },
+              ]}
+            >
+              <View style={loadingStyles.spinnerArc} />
+            </Animated.View>
+          </Animated.View>
         </View>
       </GestureHandlerRootView>
     );
@@ -272,3 +398,85 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+// ════════════════════════════════════════════
+//  Loading screen styles — mirrors index.tsx
+// ════════════════════════════════════════════
+const loadingStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: BG_PRIMARY,
+  },
+  splitBackground: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: "row",
+  },
+  splitHalf: {
+    flex: 1,
+    opacity: 0.3,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15, 23, 42, 0.6)",
+  },
+  diagonalContainer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  diagonal: {
+    width: 2,
+    height: "120%",
+    backgroundColor: "rgba(226, 232, 240, 0.15)",
+    transform: [{ rotate: "15deg" }],
+  },
+  content: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  vsContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(226, 232, 240, 0.12)",
+    borderWidth: 2,
+    borderColor: NEUTRAL_ACCENT,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  vsText: {
+    fontSize: 28,
+    fontWeight: "900",
+    color: NEUTRAL_ACCENT,
+    letterSpacing: 4,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    letterSpacing: -0.5,
+    marginBottom: 32,
+  },
+  spinner: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 3,
+    borderColor: "rgba(226, 232, 240, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  spinnerArc: {
+    position: "absolute",
+    top: -3,
+    left: -3,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 3,
+    borderColor: "transparent",
+    borderTopColor: NEUTRAL_ACCENT,
+  },
+});
