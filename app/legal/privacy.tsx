@@ -46,7 +46,7 @@ const PrivacyPolicyScreen = () => {
         <Text style={styles.bulletText}>• Date of birth (to verify you are 18 or older)</Text>
         <Text style={styles.bulletText}>• Photos you upload to your profile</Text>
         <Text style={styles.bulletText}>• Academic information (major, graduation year)</Text>
-        <Text style={styles.bulletText}>• Gender identity and preferences</Text>
+        <Text style={styles.bulletText}>• Profile bio (optional, user-provided)</Text>
         <Text style={styles.bulletText}>• Messages sent through the app</Text>
 
         <Text style={styles.subsectionTitle}>Automatically Collected Information:</Text>

@@ -14,13 +14,13 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebaseConfig";
 import { accentColor, accentBg, schoolColor } from "../../utils/colors";
+import { removePushToken } from "../../utils/pushNotifications";
 
 
 interface UserData {
   name: string;
   age: number;
   side: "usc" | "ucla";
-  gender: string;
   photos: string[];
   major: string;
   gradYear: string;
@@ -52,7 +52,6 @@ export default function ProfileScreen() {
           name: data.name || "",
           age: data.age || 0,
           side: data.side || "usc",
-          gender: data.gender || "",
           photos: data.photos || [],
           major: data.major || "",
           gradYear: data.gradYear || "",
@@ -99,6 +98,7 @@ export default function ProfileScreen() {
         text: "Log Out",
         style: "destructive",
         onPress: async () => {
+          await removePushToken();
           await signOut(auth);
           router.replace("/");
         },

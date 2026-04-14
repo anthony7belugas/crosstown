@@ -48,7 +48,6 @@ interface UserProfile {
   name: string;
   age: number;
   side: "usc" | "ucla";
-  gender: string;
   photos: string[];
   major: string;
   gradYear: string;
@@ -101,7 +100,6 @@ export default function UserProfilePage() {
           name: data.name || "Unknown",
           age: data.age || 0,
           side: data.side || "usc",
-          gender: data.gender || "",
           photos: data.photos || [],
           major: data.major || "",
           gradYear: data.gradYear || "",
