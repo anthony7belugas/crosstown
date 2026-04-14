@@ -1,4 +1,4 @@
-// app/chat/[matchId].tsx
+// app/chat/[showdownId].tsx
 // 1:1 chat — with persistent ⚔ Rematch button in header and game-picker modal
 import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -37,7 +37,7 @@ interface OtherUser {
 }
 
 export default function ChatDetailScreen() {
-  const { matchId } = useLocalSearchParams<{ matchId: string }>();
+  const { showdownId } = useLocalSearchParams<{ showdownId: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
@@ -62,20 +62,20 @@ export default function ChatDetailScreen() {
 
   const styles = createStyles(mySide);
 
-  // ─── Load match + user info ───────────────────────────────
+  // ─── Load showdown + user info ───────────────────────────────
   useEffect(() => {
-    if (!matchId || !auth.currentUser) return;
+    if (!showdownId || !auth.currentUser) return;
 
     getDoc(doc(db, "users", auth.currentUser.uid)).then((meSnap) => {
       if (meSnap.exists()) setMySide(meSnap.data().side || "usc");
     }).catch(() => {});
 
-    const loadMatchInfo = async () => {
+    const loadShowdownInfo = async () => {
       try {
-        const matchDoc = await getDoc(doc(db, "matches", matchId));
-        if (!matchDoc.exists()) { setLoading(false); return; }
-        const matchData = matchDoc.data();
-        const otherUserId = matchData.users.find(
+        const showdownDoc = await getDoc(doc(db, "showdowns", showdownId));
+        if (!showdownDoc.exists()) { setLoading(false); return; }
+        const showdownData = showdownDoc.data();
+        const otherUserId = showdownData.users.find(
           (id: string) => id !== auth.currentUser!.uid
         );
         if (otherUserId) {
@@ -91,29 +91,29 @@ export default function ChatDetailScreen() {
           }
         }
       } catch (error) {
-        console.error("Error loading match:", error);
+        console.error("Error loading showdown:", error);
       }
     };
-    loadMatchInfo();
-  }, [matchId]);
+    loadShowdownInfo();
+  }, [showdownId]);
 
-  // ─── Real-time match doc listener (picks up activeGameId) ─
+  // ─── Real-time showdown doc listener (picks up activeGameId) ─
   useEffect(() => {
-    if (!matchId) return;
-    const unsub = onSnapshot(doc(db, "matches", matchId), (snap) => {
+    if (!showdownId) return;
+    const unsub = onSnapshot(doc(db, "showdowns", showdownId), (snap) => {
       if (!snap.exists()) return;
       const data = snap.data();
       setActiveGameId(data.activeGameId ?? null);
       setActiveGameType(data.activeGameType ?? null);
     });
     return () => unsub();
-  }, [matchId]);
+  }, [showdownId]);
 
   // ─── Real-time messages ───────────────────────────────────
   useEffect(() => {
-    if (!matchId) return;
+    if (!showdownId) return;
     const q = query(
-      collection(db, "matches", matchId, "messages"),
+      collection(db, "showdowns", showdownId, "messages"),
       orderBy("createdAt", "asc")
     );
     const unsub = onSnapshot(q, (snapshot) => {
@@ -126,22 +126,22 @@ export default function ChatDetailScreen() {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     });
     return () => unsub();
-  }, [matchId]);
+  }, [showdownId]);
 
   // ─── Send message ─────────────────────────────────────────
   const handleSend = async () => {
-    if (!inputText.trim() || !matchId || !auth.currentUser || sending) return;
+    if (!inputText.trim() || !showdownId || !auth.currentUser || sending) return;
     const text = inputText.trim();
     if (!passesContentFilter(text)) { setInputText(""); return; }
     setSending(true);
     setInputText("");
     try {
-      await addDoc(collection(db, "matches", matchId, "messages"), {
+      await addDoc(collection(db, "showdowns", showdownId, "messages"), {
         senderId: auth.currentUser.uid,
         text,
         createdAt: serverTimestamp(),
       });
-      await updateDoc(doc(db, "matches", matchId), {
+      await updateDoc(doc(db, "showdowns", showdownId), {
         lastMessage: text,
         lastMessageAt: serverTimestamp(),
       });
@@ -163,7 +163,7 @@ export default function ChatDetailScreen() {
   };
 
   const launchRematch = async (type: GameType) => {
-    if (!matchId || !otherUser || !auth.currentUser || launchingGame) return;
+    if (!showdownId || !otherUser || !auth.currentUser || launchingGame) return;
     setLaunchingGame(true);
     setShowGamePicker(false);
     try {
@@ -174,7 +174,7 @@ export default function ChatDetailScreen() {
         [otherUser.uid]: otherUser.side,
       };
       const gameId = await createGame(
-        matchId,
+        showdownId,
         type,
         [auth.currentUser.uid, otherUser.uid],
         sides as any

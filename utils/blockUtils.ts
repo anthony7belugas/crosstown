@@ -15,7 +15,7 @@ export interface ReportParams {
 }
 
 /**
- * Block a user — adds to both users' block arrays and deletes any match between them
+ * Block a user — adds to both users' block arrays and deletes any showdown between them
  */
 export async function blockUser(blockedId: string): Promise<void> {
   const currentUser = auth.currentUser;
@@ -43,10 +43,10 @@ export async function blockUser(blockedId: string): Promise<void> {
 
   await batch.commit();
 
-  // Delete any matches between the two users
-  await deleteMatchesBetweenUsers(currentUser.uid, blockedId);
+  // Delete any showdowns between the two users
+  await deleteShowdownsBetweenUsers(currentUser.uid, blockedId);
 
-  // Delete any likes between the two users
+  // Delete any challenges between the two users
   await deleteLikesBetweenUsers(currentUser.uid, blockedId);
 }
 
@@ -110,10 +110,10 @@ export function isUserBlocked(
 
 // --- Helpers ---
 
-async function deleteMatchesBetweenUsers(uid1: string, uid2: string): Promise<void> {
+async function deleteShowdownsBetweenUsers(uid1: string, uid2: string): Promise<void> {
   try {
-    // Matches store both user IDs in a users array
-    const q1 = query(collection(db, "matches"), where("users", "array-contains", uid1));
+    // Showdowns store both user IDs in a users array
+    const q1 = query(collection(db, "showdowns"), where("users", "array-contains", uid1));
     const snapshot = await getDocs(q1);
     const deletePromises: Promise<void>[] = [];
     snapshot.docs.forEach((d) => {
@@ -130,8 +130,8 @@ async function deleteMatchesBetweenUsers(uid1: string, uid2: string): Promise<vo
 
 async function deleteLikesBetweenUsers(uid1: string, uid2: string): Promise<void> {
   try {
-    const q1 = query(collection(db, "likes"), where("fromUserId", "==", uid1), where("toUserId", "==", uid2));
-    const q2 = query(collection(db, "likes"), where("fromUserId", "==", uid2), where("toUserId", "==", uid1));
+    const q1 = query(collection(db, "challenges"), where("fromUserId", "==", uid1), where("toUserId", "==", uid2));
+    const q2 = query(collection(db, "challenges"), where("fromUserId", "==", uid2), where("toUserId", "==", uid1));
     const [s1, s2] = await Promise.all([getDocs(q1), getDocs(q2)]);
     const deletePromises: Promise<void>[] = [];
     s1.docs.forEach((d) => deletePromises.push(deleteDoc(d.ref)));

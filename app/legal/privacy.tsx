@@ -51,7 +51,7 @@ const PrivacyPolicyScreen = () => {
 
         <Text style={styles.subsectionTitle}>Automatically Collected Information:</Text>
         <Text style={styles.bulletText}>• Device information (type, operating system)</Text>
-        <Text style={styles.bulletText}>• Usage data (swipe activity, features used, interactions)</Text>
+        <Text style={styles.bulletText}>• Usage data (challenge activity, features used, interactions)</Text>
         <Text style={styles.bulletText}>• Log data (IP address, access times)</Text>
         <Text style={styles.bulletText}>• Push notification tokens (if enabled)</Text>
 
@@ -60,9 +60,9 @@ const PrivacyPolicyScreen = () => {
         <Text style={styles.bulletText}>• Provide and operate the Service</Text>
         <Text style={styles.bulletText}>• Create and maintain your account</Text>
         <Text style={styles.bulletText}>• Show your profile to users from the rival school</Text>
-        <Text style={styles.bulletText}>• Facilitate mutual matches and enable messaging</Text>
-        <Text style={styles.bulletText}>• Enforce swipe limits and track match activity</Text>
-        <Text style={styles.bulletText}>• Send push notifications about matches and messages</Text>
+        <Text style={styles.bulletText}>• Facilitate connections and enable messaging</Text>
+        <Text style={styles.bulletText}>• Enforce challenge limits and track connection activity</Text>
+        <Text style={styles.bulletText}>• Send push notifications about connections and messages</Text>
         <Text style={styles.bulletText}>• Send you service-related communications, including updates, surveys, and requests for feedback</Text>
         <Text style={styles.bulletText}>• Improve and personalize your experience</Text>
         <Text style={styles.bulletText}>• Prevent fraud, abuse, and safety issues</Text>
@@ -76,7 +76,7 @@ const PrivacyPolicyScreen = () => {
           Your profile information (name, photos, major, graduation year, school affiliation) is visible to verified users from the opposing school. You will only be shown to — and see — users from the rival university.
         </Text>
         <Text style={styles.text}>
-          Direct messages are only visible to you and the person you matched with.
+          Direct messages are only visible to you and the person you connected with.
         </Text>
 
         <Text style={styles.subsectionTitle}>We Do Not Sell Your Data:</Text>
@@ -99,7 +99,7 @@ const PrivacyPolicyScreen = () => {
 
         <Text style={styles.sectionTitle}>5. Push Notifications</Text>
         <Text style={styles.text}>
-          If you enable push notifications, we collect your device's push token to send you alerts about new matches, messages, and app activity.
+          If you enable push notifications, we collect your device's push token to send you alerts about new connections, messages, and app activity.
         </Text>
         <Text style={styles.text}>
           You can control notification preferences in your device settings or within the app at any time.
@@ -121,7 +121,7 @@ const PrivacyPolicyScreen = () => {
         <Text style={styles.subsectionTitle}>When You Delete Your Account:</Text>
         <Text style={styles.bulletText}>• Your profile is immediately hidden from all other users</Text>
         <Text style={styles.bulletText}>• Your photos are removed</Text>
-        <Text style={styles.bulletText}>• Your match history and messages are hidden</Text>
+        <Text style={styles.bulletText}>• Your connection history and messages are hidden</Text>
         <Text style={styles.bulletText}>• Your push notification token is cleared</Text>
         <Text style={styles.bulletText}>• You are signed out and cannot log back in</Text>
         <Text style={styles.bulletText}>• This action is permanent and cannot be undone</Text>

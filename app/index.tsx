@@ -1,5 +1,5 @@
 // app/index.tsx
-// Welcome screen — "Date Your Rival"
+// Welcome screen — USC vs. UCLA rivalry
 import { FontAwesome } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef } from "react";
@@ -177,7 +177,7 @@ export default function WelcomeScreen() {
               },
             ]}
           >
-            Date Your Rival
+            USC vs. UCLA
           </Animated.Text>
 
           <Animated.View

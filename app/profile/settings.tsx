@@ -23,9 +23,9 @@ interface BlockedUser {
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [notifMatches, setNotifMatches] = useState(true);
+  const [notifShowdowns, setNotifShowdowns] = useState(true);
   const [notifMessages, setNotifMessages] = useState(true);
-  const [notifLikes, setNotifLikes] = useState(true);
+  const [notifChallenges, setNotifChallenges] = useState(true);
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [deleting, setDeleting] = useState(false);
   const [userSide, setUserSide] = useState<string>("usc");
@@ -72,7 +72,7 @@ export default function SettingsScreen() {
   const handleDeleteAccount = () => {
     Alert.alert(
       "Delete Account",
-      "This will permanently delete your account, all matches, messages, and data. This cannot be undone.",
+      "This will permanently delete your account, all showdowns, messages, and data. This cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -140,13 +140,13 @@ export default function SettingsScreen() {
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
               <FontAwesome name="fire" size={16} color={accentColor(userSide)} />
-              <Text style={styles.settingText}>New matches</Text>
+              <Text style={styles.settingText}>New showdowns</Text>
             </View>
             <Switch
-              value={notifMatches}
-              onValueChange={setNotifMatches}
+              value={notifShowdowns}
+              onValueChange={setNotifShowdowns}
               trackColor={{ false: "#334155", true: accentBg(userSide, 0.3) }}
-              thumbColor={notifMatches ? accentColor(userSide) : "#94A3B8"}
+              thumbColor={notifShowdowns ? accentColor(userSide) : "#94A3B8"}
             />
           </View>
           <View style={styles.divider} />
@@ -165,14 +165,14 @@ export default function SettingsScreen() {
           <View style={styles.divider} />
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <FontAwesome name="heart" size={16} color={accentColor(userSide)} />
-              <Text style={styles.settingText}>Someone liked you</Text>
+              <FontAwesome name="bolt" size={16} color={accentColor(userSide)} />
+              <Text style={styles.settingText}>New challenges</Text>
             </View>
             <Switch
-              value={notifLikes}
-              onValueChange={setNotifLikes}
+              value={notifChallenges}
+              onValueChange={setNotifChallenges}
               trackColor={{ false: "#334155", true: accentBg(userSide, 0.3) }}
-              thumbColor={notifLikes ? accentColor(userSide) : "#94A3B8"}
+              thumbColor={notifChallenges ? accentColor(userSide) : "#94A3B8"}
             />
           </View>
         </View>

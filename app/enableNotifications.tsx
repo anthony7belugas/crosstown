@@ -76,24 +76,24 @@ export default function EnableNotificationsScreen() {
           <FontAwesome name="bell" size={48} color={accentColor(userSide)} />
         </Animated.View>
 
-        <Text style={styles.title}>Don't Miss a Match</Text>
+        <Text style={styles.title}>Stay in the Game</Text>
         <Text style={styles.subtitle}>
-          Get notified when someone from the rival school likes you, when you
-          match, and when they message you.
+          Get notified when a rival challenges you, when they accept your
+          challenge, and when they message you.
         </Text>
 
         <View style={styles.previewList}>
           <View style={styles.previewItem}>
-            <Text style={styles.previewEmoji}>🔥</Text>
-            <Text style={styles.previewText}>"A rival just matched with you"</Text>
+            <Text style={styles.previewEmoji}>⚔️</Text>
+            <Text style={styles.previewText}>"A Bruin just challenged you"</Text>
           </View>
           <View style={styles.previewItem}>
-            <Text style={styles.previewEmoji}>❤️</Text>
-            <Text style={styles.previewText}>"Someone from the other side liked you"</Text>
+            <Text style={styles.previewEmoji}>🏆</Text>
+            <Text style={styles.previewText}>"Your rival played their turn"</Text>
           </View>
           <View style={styles.previewItem}>
             <Text style={styles.previewEmoji}>💬</Text>
-            <Text style={styles.previewText}>New message from your match</Text>
+            <Text style={styles.previewText}>New message from your rival</Text>
           </View>
         </View>
       </View>

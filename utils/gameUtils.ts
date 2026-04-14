@@ -15,7 +15,7 @@ export type Side = "usc" | "ucla";
 
 export interface Game {
   id: string;
-  matchId: string;
+  showdownId: string;
   type: GameType;
   players: string[];               // [player0Uid, player1Uid]
   sides: Record<string, Side>;     // uid -> "usc" | "ucla"
@@ -204,13 +204,13 @@ export const wordScore = (word: string): number => {
 // ─── Firestore Game Creation ──────────────────────────────────
 
 export const createGame = async (
-  matchId: string,
+  showdownId: string,
   type: GameType,
   players: [string, string],
   sides: Record<string, Side>
 ): Promise<string> => {
   const base: any = {
-    matchId,
+    showdownId,
     type,
     players,
     sides,
@@ -233,8 +233,8 @@ export const createGame = async (
 
   const ref = await addDoc(collection(db, "games"), base);
 
-  // Link game to match so chat can surface it
-  await updateDoc(doc(db, "matches", matchId), {
+  // Link game to showdown so chat can surface it
+  await updateDoc(doc(db, "showdowns", showdownId), {
     activeGameId: ref.id,
     activeGameType: type,
   });

@@ -33,7 +33,7 @@ const TermsAndConditionsScreen = () => {
 
         <Text style={styles.intro}>
           Terms and Conditions for the {APP_NAME} App — by {COMPANY_NAME}.{'\n'}
-          "Date Your Rival."
+          
         </Text>
 
         <Text style={styles.sectionTitle}>1. Agreement to Terms</Text>
@@ -43,12 +43,12 @@ const TermsAndConditionsScreen = () => {
 
         <Text style={styles.sectionTitle}>2. About {APP_NAME}</Text>
         <Text style={styles.text}>
-          {APP_NAME} is a dating and social discovery platform that connects current students from USC and UCLA ("the Crosstown rivalry"). The Service allows you to:
+          {APP_NAME} is a social gaming and connection platform that connects current students from USC and UCLA ("the Crosstown rivalry"). The Service allows you to:
         </Text>
         <Text style={styles.bulletText}>• Create a profile verified to your university email</Text>
-        <Text style={styles.bulletText}>• Swipe on and match with students from the opposing school</Text>
-        <Text style={styles.bulletText}>• Message mutual matches</Text>
-        <Text style={styles.bulletText}>• Manage your dating profile and preferences</Text>
+        <Text style={styles.bulletText}>• Challenge and connect with students from the opposing school</Text>
+        <Text style={styles.bulletText}>• Message accepted rivals</Text>
+        <Text style={styles.bulletText}>• Manage your player profile and preferences</Text>
 
         <Text style={styles.sectionTitle}>3. Eligibility</Text>
         <Text style={styles.text}>
@@ -84,7 +84,7 @@ const TermsAndConditionsScreen = () => {
         <Text style={styles.bulletText}>• Using the Service for any illegal purpose</Text>
         <Text style={styles.bulletText}>• Creating multiple or fake accounts</Text>
         <Text style={styles.bulletText}>• Stalking or obsessively contacting other users</Text>
-        <Text style={styles.bulletText}>• Attempting to circumvent swipe limits or other Service restrictions</Text>
+        <Text style={styles.bulletText}>• Attempting to circumvent challenge limits or other Service restrictions</Text>
         <Text style={styles.bulletText}>• Using bots, scripts, or automated tools to interact with the Service</Text>
 
         <Text style={styles.sectionTitle}>6. Content</Text>
@@ -108,14 +108,14 @@ const TermsAndConditionsScreen = () => {
           We reserve the right to remove any photos that violate these guidelines without notice.
         </Text>
 
-        <Text style={styles.sectionTitle}>8. Swipe Limits</Text>
+        <Text style={styles.sectionTitle}>8. Challenge Limits</Text>
         <Text style={styles.text}>
-          {APP_NAME} enforces daily swipe limits to promote thoughtful matching and prevent spam behavior. Swipe counts reset on a 24-hour cycle. Attempting to circumvent swipe limits through any means is a violation of these Terms and may result in account suspension.
+          {APP_NAME} enforces daily challenge limits to promote quality connections and prevent spam behavior. Challenge counts reset on a 24-hour cycle. Attempting to circumvent challenge limits through any means is a violation of these Terms and may result in account suspension.
         </Text>
 
-        <Text style={styles.sectionTitle}>9. Matching & Messaging</Text>
+        <Text style={styles.sectionTitle}>9. Connections & Messaging</Text>
         <Text style={styles.text}>
-          Messaging is only available between mutually matched users (both users have swiped right on each other). You agree not to use messaging to harass, solicit, or spam other users. Matches may be unmatched at any time by either party, which will remove the conversation.
+          Messaging is only available between mutually connected users (both users have accepted challenges from each other). You agree not to use messaging to harass, solicit, or spam other users. Connections may be removed at any time by either party, which will remove the conversation.
         </Text>
 
         <Text style={styles.sectionTitle}>10. Blocking and Reporting</Text>
@@ -142,7 +142,7 @@ const TermsAndConditionsScreen = () => {
 
         <Text style={styles.sectionTitle}>12. Safety and In-Person Meetings</Text>
         <Text style={styles.text}>
-          {APP_NAME} connects you with real people. If you choose to meet a match in person, we strongly recommend:
+          {APP_NAME} connects you with real people. If you choose to meet a connection in person, we strongly recommend:
         </Text>
         <Text style={styles.bulletText}>• Meeting in a public place, especially for the first time</Text>
         <Text style={styles.bulletText}>• Telling a friend where you're going and who you're meeting</Text>
@@ -155,12 +155,12 @@ const TermsAndConditionsScreen = () => {
 
         <Text style={styles.sectionTitle}>13. Push Notifications</Text>
         <Text style={styles.text}>
-          If you enable push notifications, you may receive alerts about new matches, messages, and app activity. You can manage notification preferences in your device settings or within the app at any time.
+          If you enable push notifications, you may receive alerts about new connections, messages, and app activity. You can manage notification preferences in your device settings or within the app at any time.
         </Text>
 
         <Text style={styles.sectionTitle}>14. Intellectual Property</Text>
         <Text style={styles.text}>
-          The Service and its original content, features, design, and functionality are owned by {COMPANY_NAME} and are protected by copyright, trademark, and other intellectual property laws. "CrossTown" and "Date Your Rival" are original marks of {COMPANY_NAME}.
+          The Service and its original content, features, design, and functionality are owned by {COMPANY_NAME} and are protected by copyright, trademark, and other intellectual property laws. "CrossTown" is an original mark of {COMPANY_NAME}.
         </Text>
         <Text style={styles.text}>
           You may not copy, reproduce, distribute, or create derivative works from any part of the Service without our express written permission.
@@ -191,7 +191,7 @@ const TermsAndConditionsScreen = () => {
         <Text style={styles.text}>When your account is terminated or deleted:</Text>
         <Text style={styles.bulletText}>• Your profile is immediately hidden from all other users</Text>
         <Text style={styles.bulletText}>• Your photos are removed</Text>
-        <Text style={styles.bulletText}>• Your matches and messages are hidden</Text>
+        <Text style={styles.bulletText}>• Your connections and messages are hidden</Text>
         <Text style={styles.bulletText}>• This action is permanent and cannot be undone</Text>
 
         <Text style={styles.sectionTitle}>19. Changes to Terms</Text>

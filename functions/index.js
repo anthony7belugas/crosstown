@@ -1,7 +1,7 @@
 // functions/index.js
 //
 // CROSSTOWN FIREBASE CLOUD FUNCTIONS V2
-// - Push Notifications (new match, new message, someone liked you, inactive nudge)
+// - Push Notifications (new showdown, new message, new challenge, inactive nudge)
 // - Content Moderation (banned word filter on bios + messages)
 // - Daily cleanup (expired passes)
 //
@@ -97,18 +97,18 @@ async function isUserBlocked(userId, otherUserId) {
 }
 
 // ============================================
-// PUSH: New Match
-// Triggers when a match document is created
+// PUSH: New Showdown
+// Triggers when a showdown document is created
 // ============================================
 
-exports.onNewMatch = onDocumentCreated("matches/{matchId}", async (event) => {
+exports.onNewShowdown = onDocumentCreated("showdowns/{showdownId}", async (event) => {
   const snapshot = event.data;
   if (!snapshot) return null;
 
-  const matchData = snapshot.data();
-  const users = matchData.users; // [uid1, uid2]
+  const showdownData = snapshot.data();
+  const users = showdownData.users; // [uid1, uid2]
 
-  console.log("New match between:", users[0], "and", users[1]);
+  console.log("New showdown between:", users[0], "and", users[1]);
 
   try {
     // Notify both users
@@ -120,17 +120,17 @@ exports.onNewMatch = onDocumentCreated("matches/{matchId}", async (event) => {
       // Check notification preferences
       const userDoc = await db.collection("users").doc(userId).get();
       const prefs = userDoc.data()?.notificationPrefs || {};
-      if (prefs.matches === false) continue;
+      if (prefs.showdowns === false) continue;
 
       await sendPush(
         pushToken,
-        "🔥 It's a Match!",
-        "A rival just matched with you. Go say hi!",
-        { type: "match", matchId: event.params.matchId }
+        "⚔️ Game On!",
+        "A rival accepted your challenge. Let's go!",
+        { type: "showdown", showdownId: event.params.showdownId }
       );
     }
   } catch (error) {
-    console.error("Error sending match push:", error);
+    console.error("Error sending showdown push:", error);
   }
 
   return null;
@@ -138,28 +138,28 @@ exports.onNewMatch = onDocumentCreated("matches/{matchId}", async (event) => {
 
 // ============================================
 // PUSH: New Message
-// Triggers when a message is added to a match's messages subcollection
+// Triggers when a message is added to a showdown's messages subcollection
 // ============================================
 
 exports.onNewMessage = onDocumentCreated(
-  "matches/{matchId}/messages/{messageId}",
+  "showdowns/{showdownId}/messages/{messageId}",
   async (event) => {
     const snapshot = event.data;
     if (!snapshot) return null;
 
     const message = snapshot.data();
-    const matchId = event.params.matchId;
+    const showdownId = event.params.showdownId;
     const senderId = message.senderId;
 
-    console.log("New message in match:", matchId);
+    console.log("New message in showdown:", showdownId);
 
     try {
-      // Get the match to find the recipient
-      const matchDoc = await db.collection("matches").doc(matchId).get();
-      if (!matchDoc.exists) return null;
+      // Get the showdown to find the recipient
+      const showdownDoc = await db.collection("showdowns").doc(showdownId).get();
+      if (!showdownDoc.exists) return null;
 
-      const matchData = matchDoc.data();
-      const recipientId = matchData.users.find((id) => id !== senderId);
+      const showdownData = showdownDoc.data();
+      const recipientId = showdownData.users.find((id) => id !== senderId);
       if (!recipientId) return null;
 
       // Check if blocked
@@ -186,7 +186,7 @@ exports.onNewMessage = onDocumentCreated(
         pushToken,
         `${senderName}`,
         preview,
-        { type: "message", matchId }
+        { type: "message", showdownId }
       );
     } catch (error) {
       console.error("Error sending message push:", error);
@@ -197,11 +197,11 @@ exports.onNewMessage = onDocumentCreated(
 );
 
 // ============================================
-// PUSH: Someone Liked You
-// Triggers when a like document is created
+// PUSH: Someone Challenged You
+// Triggers when a challenge document is created
 // ============================================
 
-exports.onNewLike = onDocumentCreated("likes/{likeId}", async (event) => {
+exports.onNewChallenge = onDocumentCreated("likes/{likeId}", async (event) => {
   const snapshot = event.data;
   if (!snapshot) return null;
 
@@ -218,7 +218,7 @@ exports.onNewLike = onDocumentCreated("likes/{likeId}", async (event) => {
     // Check notification preferences
     const userDoc = await db.collection("users").doc(toUserId).get();
     const prefs = userDoc.data()?.notificationPrefs || {};
-    if (prefs.likes === false) return null;
+    if (prefs.challenges === false) return null;
 
     const pushToken = await getUserPushToken(toUserId);
     if (!pushToken) return null;
@@ -226,12 +226,12 @@ exports.onNewLike = onDocumentCreated("likes/{likeId}", async (event) => {
     // Don't reveal who — just say "someone"
     await sendPush(
       pushToken,
-      "❤️ Someone liked you",
-      "Someone from the other side liked you today.",
-      { type: "like" }
+      "⚔️ New Challenger",
+      "Someone from the other side just challenged you.",
+      { type: "challenge" }
     );
   } catch (error) {
-    console.error("Error sending like push:", error);
+    console.error("Error sending challenge push:", error);
   }
 
   return null;
@@ -242,7 +242,7 @@ exports.onNewLike = onDocumentCreated("likes/{likeId}", async (event) => {
 // ============================================
 
 exports.moderateMessage = onDocumentCreated(
-  "matches/{matchId}/messages/{messageId}",
+  "showdowns/{showdownId}/messages/{messageId}",
   async (event) => {
     const snapshot = event.data;
     if (!snapshot) return null;
@@ -298,7 +298,7 @@ exports.inactiveNudge = onSchedule(
       const threeDaysAgo = new Date();
       threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
 
-      // Find users who haven't swiped in 3+ days
+      // Find users who haven't played in 3+ days
       const usersSnap = await db
         .collection("users")
         .where("profileCompleted", "==", true)
@@ -314,17 +314,17 @@ exports.inactiveNudge = onSchedule(
         const prefs = data.notificationPrefs || {};
         if (prefs.nudges === false) continue;
 
-        // Check last swipe date
-        const lastSwipeDate = data.dailySwipeDate;
-        if (lastSwipeDate) {
-          const lastSwipe = new Date(lastSwipeDate);
-          if (lastSwipe > threeDaysAgo) continue; // Active recently
+        // Check last challenge date
+        const lastChallengeDate = data.dailyChallengeDate;
+        if (lastChallengeDate) {
+          const lastChallenge = new Date(lastChallengeDate);
+          if (lastChallenge > threeDaysAgo) continue; // Active recently
         }
 
         await sendPush(
           data.expoPushToken,
-          "Your rivals are swiping 👀",
-          "Are you? Open CrossTown and see who's waiting.",
+          "Your rivals are playing without you 👀",
+          "The scoreboard is moving. Get back in the game.",
           { type: "nudge" }
         );
 
@@ -435,7 +435,7 @@ exports.sendVerificationEmail = onCall(
                 <h1 style="font-size: 36px; margin: 0; letter-spacing: 2px;">
                   <span style="color: #DC2626;">CROSS</span><span style="color: #2563EB;">TOWN</span>
                 </h1>
-                <p style="color: #94A3B8; font-size: 14px; margin-top: 4px;">Date Your Rival</p>
+                <p style="color: #94A3B8; font-size: 14px; margin-top: 4px;">USC vs. UCLA</p>
               </div>
               <p style="color: #E2E8F0; font-size: 16px; line-height: 24px; text-align: center;">
                 Welcome to CrossTown! Tap the button below to verify your student email.
@@ -536,7 +536,7 @@ exports.onGameUpdated = onDocumentUpdated("games/{gameId}", async (event) => {
         const gameLabel = after.type === "cup_pong" ? "Cup Pong" : "Word Hunt";
         if (loserToken) {
           await sendPush(loserToken, `${winnerName} won ${gameLabel} 🏆`, "Rematch?",
-            { matchId: after.matchId, type: "game_result" });
+            { showdownId: after.showdownId, type: "game_result" });
         }
       }
 
@@ -566,7 +566,7 @@ exports.onGameUpdated = onDocumentUpdated("games/{gameId}", async (event) => {
       const gameLabel = after.type === "cup_pong" ? "Cup Pong" : "Word Hunt";
       await sendPush(token, `${opponentName} played their turn ⚔`,
         `It's your turn in ${gameLabel}`,
-        { gameId: event.params.gameId, gameType: after.type, matchId: after.matchId, type: "your_turn" });
+        { gameId: event.params.gameId, gameType: after.type, showdownId: after.showdownId, type: "your_turn" });
     } catch (err) {
       console.error("onGameUpdated (turn) error:", err);
     }

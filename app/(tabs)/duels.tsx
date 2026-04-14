@@ -1,5 +1,5 @@
 // app/(tabs)/duels.tsx
-// Duels — card stack with ⚔ Challenge button on card, swipe left to pass
+// Duels — card stack with ⚔ Challenge button on card, pass left to skip
 // Matches the spec: "the Challenge button is full-width, bold, colored in
 // the current user's school color, and reads '⚔ Challenge'."
 import { FontAwesome } from "@expo/vector-icons";
@@ -19,7 +19,7 @@ import { BlockModal } from "../../components/BlockModal";
 import { ReportModal } from "../../components/ReportModal";
 import { auth, db } from "../../firebaseConfig";
 import { blockUser, reportUser, ReportReason } from "../../utils/blockUtils";
-import { DAILY_SWIPE_LIMIT } from "../../utils/swipeLimits";
+import { DAILY_CHALLENGE_LIMIT } from "../../utils/challengeLimits";
 import { accentColor, accentBg, schoolColor } from "../../utils/colors";
 
 const { width, height } = Dimensions.get("window");
@@ -46,7 +46,7 @@ export default function DuelsScreen() {
   const [profiles, setProfiles] = useState<ProfileCard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [challengesRemaining, setChallengesRemaining] = useState(DAILY_SWIPE_LIMIT);
+  const [challengesRemaining, setChallengesRemaining] = useState(DAILY_CHALLENGE_LIMIT);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showOptions, setShowOptions] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
@@ -71,11 +71,11 @@ export default function DuelsScreen() {
       setCurrentUserData(userData);
 
       const today = getTodayString();
-      let swipeCount = 0;
-      if (userData.dailySwipeDate === today) swipeCount = userData.dailySwipeCount || 0;
-      setChallengesRemaining(Math.max(0, DAILY_SWIPE_LIMIT - swipeCount));
+      let challengeCount = 0;
+      if (userData.dailyChallengeDate === today) challengeCount = userData.dailyChallengeCount || 0;
+      setChallengesRemaining(Math.max(0, DAILY_CHALLENGE_LIMIT - challengeCount));
 
-      // Build exclusion set: already challenged, challenged by, matched, passed today
+      // Build exclusion set: already challenged, challenged by, in showdown, passed today
       const excludedIds = new Set<string>();
 
       const challengesSent = await getDocs(
@@ -88,10 +88,10 @@ export default function DuelsScreen() {
       );
       challengesReceived.docs.forEach((d) => excludedIds.add(d.data().fromUserId));
 
-      const matchesSnap = await getDocs(
-        query(collection(db, "matches"), where("users", "array-contains", auth.currentUser.uid))
+      const showdownsSnap = await getDocs(
+        query(collection(db, "showdowns"), where("users", "array-contains", auth.currentUser.uid))
       );
-      matchesSnap.docs.forEach((d) => {
+      showdownsSnap.docs.forEach((d) => {
         d.data().users.forEach((uid: string) => excludedIds.add(uid));
       });
 
@@ -135,21 +135,21 @@ export default function DuelsScreen() {
     }
   };
 
-  const incrementSwipeCount = async () => {
+  const incrementChallengeCount = async () => {
     if (!auth.currentUser) return;
     const today = getTodayString();
     const userRef = doc(db, "users", auth.currentUser.uid);
     const snap = await getDoc(userRef);
     const d = snap.data() || {};
-    let newCount = d.dailySwipeDate === today ? (d.dailySwipeCount || 0) + 1 : 1;
-    await updateDoc(userRef, { dailySwipeCount: newCount, dailySwipeDate: today });
-    setChallengesRemaining(Math.max(0, DAILY_SWIPE_LIMIT - newCount));
+    let newCount = d.dailyChallengeDate === today ? (d.dailyChallengeCount || 0) + 1 : 1;
+    await updateDoc(userRef, { dailyChallengeCount: newCount, dailyChallengeDate: today });
+    setChallengesRemaining(Math.max(0, DAILY_CHALLENGE_LIMIT - newCount));
   };
 
   const handleChallenge = async (profile: ProfileCard) => {
     if (!auth.currentUser || challengesRemaining <= 0) return;
     try {
-      await incrementSwipeCount();
+      await incrementChallengeCount();
       await addDoc(collection(db, "challenges"), {
         fromUserId: auth.currentUser.uid,
         toUserId: profile.uid,
@@ -181,7 +181,7 @@ export default function DuelsScreen() {
     }
   };
 
-  // Swipe: right = challenge, left = pass (silent)
+  // Gesture: right = challenge, left = pass (silent)
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -352,7 +352,7 @@ export default function DuelsScreen() {
             </View>
           )}
 
-          {/* Swipe stamps */}
+          {/* Challenge stamps */}
           <Animated.View style={[styles.stampContainer, styles.challengeStamp, { opacity: challengeOpacity }]}>
             <Text style={[styles.stampText, { color: accentColor(userSide) }]}>⚔</Text>
           </Animated.View>
@@ -459,7 +459,7 @@ const createStyles = (_s: string) =>
     indicator: { flex: 1, height: 3, backgroundColor: "rgba(255,255,255,0.3)", borderRadius: 2 },
     indicatorActive: { backgroundColor: "#fff" },
 
-    // Swipe stamps
+    // Challenge stamps
     stampContainer: { position: "absolute", top: 50, padding: 10, borderWidth: 3, borderRadius: 10 },
     challengeStamp: { left: 20, borderColor: accentColor(_s), transform: [{ rotate: "-15deg" }] },
     passStamp: { right: 20, borderColor: "#EF4444", transform: [{ rotate: "15deg" }] },

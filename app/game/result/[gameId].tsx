@@ -85,7 +85,7 @@ export default function GameResultScreen() {
     setLaunching(true);
     const oUid = game.players.find((p) => p !== myUid) ?? "";
     try {
-      const newId = await createGame(game.matchId, type,
+      const newId = await createGame(game.showdownId, type,
         [myUid, oUid], { ...game.sides });
       const route = type === "cup_pong"
         ? `/game/cup-pong/${newId}` : `/game/word-hunt/${newId}`;
@@ -211,7 +211,7 @@ export default function GameResultScreen() {
             </Pressable>
             <Pressable
               style={styles.chatBtn}
-              onPress={() => router.replace(`/chat/${game.matchId}` as any)}
+              onPress={() => router.replace(`/chat/${game.showdownId}` as any)}
             >
               <Text style={[styles.chatText, { color: accent }]}>Open Chat →</Text>
             </Pressable>

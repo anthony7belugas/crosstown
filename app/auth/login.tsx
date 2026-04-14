@@ -48,7 +48,7 @@ export default function LoginScreen() {
         </View>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Log in to keep swiping</Text>
+          <Text style={styles.subtitle}>Log in to keep playing</Text>
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Email</Text>

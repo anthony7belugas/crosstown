@@ -77,7 +77,7 @@ exports.onGameComplete = onDocumentUpdated("games/{gameId}", async (event) => {
           loserToken,
           `${winnerName} won ${gameLabel} 🏆`,
           "Rematch?",
-          { matchId: after.matchId, type: "game_result" }
+          { showdownId: after.showdownId, type: "game_result" }
         );
       }
     }
@@ -127,7 +127,7 @@ exports.onGameTurnChanged = onDocumentUpdated("games/{gameId}", async (event) =>
       {
         gameId: event.params.gameId,
         gameType: after.type,
-        matchId: after.matchId,
+        showdownId: after.showdownId,
         type: "your_turn",
       }
     );

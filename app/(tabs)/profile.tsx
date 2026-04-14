@@ -1,5 +1,5 @@
 // app/(tabs)/profile.tsx
-// Profile tab — user's profile as others see it, likes counter, edit, settings
+// Profile tab — user's profile as others see it, challenges counter, edit, settings
 import { FontAwesome } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { signOut } from "firebase/auth";
@@ -32,8 +32,8 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [userData, setUserData] = useState<UserData | null>(null);
-  const [likesCount, setLikesCount] = useState(0);
-  const [matchesCount, setMatchesCount] = useState(0);
+  const [challengesCount, setChallengesCount] = useState(0);
+  const [showdownsCount, setShowdownsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
@@ -64,31 +64,31 @@ export default function ProfileScreen() {
     });
 
     // Count likes received
-    const loadLikes = async () => {
+    const loadChallenges = async () => {
       try {
-        const likesSnap = await getDocs(
-          query(collection(db, "likes"), where("toUserId", "==", uid))
+        const challengesSnap = await getDocs(
+          query(collection(db, "challenges"), where("toUserId", "==", uid))
         );
-        setLikesCount(likesSnap.size);
+        setChallengesCount(challengesSnap.size);
       } catch (e) {
-        console.error("Error loading likes:", e);
+        console.error("Error loading challenges:", e);
       }
     };
 
     // Count matches
-    const loadMatches = async () => {
+    const loadShowdowns = async () => {
       try {
-        const matchesSnap = await getDocs(
-          query(collection(db, "matches"), where("users", "array-contains", uid))
+        const showdownsSnap = await getDocs(
+          query(collection(db, "showdowns"), where("users", "array-contains", uid))
         );
-        setMatchesCount(matchesSnap.size);
+        setShowdownsCount(showdownsSnap.size);
       } catch (e) {
-        console.error("Error loading matches:", e);
+        console.error("Error loading showdowns:", e);
       }
     };
 
-    loadLikes();
-    loadMatches();
+    loadChallenges();
+    loadShowdowns();
     return () => unsub();
   }, []);
 
@@ -136,12 +136,12 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         {/* Likes counter card */}
-        <Pressable style={styles.likesCard}>
-          <View style={styles.likesLeft}>
-            <FontAwesome name="heart" size={22} color={accentColor(profileSide)} />
+        <Pressable style={styles.challengesCard}>
+          <View style={styles.challengesLeft}>
+            <FontAwesome name="bolt" size={22} color={accentColor(profileSide)} />
             <View>
-              <Text style={styles.likesCount}>{likesCount}</Text>
-              <Text style={styles.likesLabel}>rivals liked you</Text>
+              <Text style={styles.challengesCount}>{challengesCount}</Text>
+              <Text style={styles.challengesLabel}>rivals challenged you</Text>
             </View>
           </View>
           <View style={styles.blurredGrid}>
@@ -156,13 +156,13 @@ export default function ProfileScreen() {
         {/* Stats row */}
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{matchesCount}</Text>
-            <Text style={styles.statLabel}>Matches</Text>
+            <Text style={styles.statNumber}>{showdownsCount}</Text>
+            <Text style={styles.statLabel}>Showdowns</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{likesCount}</Text>
-            <Text style={styles.statLabel}>Likes</Text>
+            <Text style={styles.statNumber}>{challengesCount}</Text>
+            <Text style={styles.statLabel}>Challenges</Text>
           </View>
         </View>
 
@@ -285,7 +285,7 @@ const createStyles = (_s: string) => StyleSheet.create({
   scrollContent: { paddingHorizontal: 20, paddingBottom: 120 },
 
   // Likes card
-  likesCard: {
+  challengesCard: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -296,9 +296,9 @@ const createStyles = (_s: string) => StyleSheet.create({
     padding: 18,
     marginBottom: 16,
   },
-  likesLeft: { flexDirection: "row", alignItems: "center", gap: 14 },
-  likesCount: { fontSize: 28, fontWeight: "900", color: accentColor(_s) },
-  likesLabel: { fontSize: 13, color: "rgba(255,255,255,0.4)", marginTop: -2 },
+  challengesLeft: { flexDirection: "row", alignItems: "center", gap: 14 },
+  challengesCount: { fontSize: 28, fontWeight: "900", color: accentColor(_s) },
+  challengesLabel: { fontSize: 13, color: "rgba(255,255,255,0.4)", marginTop: -2 },
   blurredGrid: { flexDirection: "row", gap: 6 },
   blurredThumb: {
     width: 40,

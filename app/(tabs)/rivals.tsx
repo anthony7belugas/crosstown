@@ -33,7 +33,7 @@ interface ChallengeItem {
 }
 
 interface ShowdownItem {
-  matchId: string;
+  showdownId: string;
   otherUserId: string;
   otherName: string;
   otherPhoto: string;
@@ -58,7 +58,7 @@ export default function RivalsScreen() {
 
   const showdownsRef = useRef<Map<string, ShowdownItem>>(new Map());
   const unsubscribersRef = useRef<(() => void)[]>([]);
-  const listeningMatchesRef = useRef<Set<string>>(new Set());
+  const listeningShowdownsRef = useRef<Set<string>>(new Set());
 
   const styles = createStyles(mySide);
 
@@ -100,19 +100,19 @@ export default function RivalsScreen() {
     return () => unsub();
   }, []);
 
-  // ─── Real-time matches (active showdowns) ──────────────────
+  // ─── Real-time showdowns (active showdowns) ──────────────────
   useEffect(() => {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
-    const matchesQuery = query(collection(db, "matches"), where("users", "array-contains", uid));
+    const showdownsQuery = query(collection(db, "showdowns"), where("users", "array-contains", uid));
 
-    const unsub = onSnapshot(matchesQuery, (snap) => {
-      for (const matchDoc of snap.docs) {
-        const matchId = matchDoc.id;
-        if (listeningMatchesRef.current.has(matchId)) continue;
-        listeningMatchesRef.current.add(matchId);
-        const otherUserId = matchDoc.data().users.find((id: string) => id !== uid);
-        if (otherUserId) setupShowdownListener(matchId, otherUserId);
+    const unsub = onSnapshot(showdownsQuery, (snap) => {
+      for (const showdownDoc of snap.docs) {
+        const showdownId = showdownDoc.id;
+        if (listeningShowdownsRef.current.has(showdownId)) continue;
+        listeningShowdownsRef.current.add(showdownId);
+        const otherUserId = showdownDoc.data().users.find((id: string) => id !== uid);
+        if (otherUserId) setupShowdownListener(showdownId, otherUserId);
       }
       setLoading(false);
     });
@@ -121,11 +121,11 @@ export default function RivalsScreen() {
     return () => {
       unsubscribersRef.current.forEach((u) => u());
       unsubscribersRef.current = [];
-      listeningMatchesRef.current.clear();
+      listeningShowdownsRef.current.clear();
     };
   }, []);
 
-  const setupShowdownListener = async (matchId: string, otherUserId: string) => {
+  const setupShowdownListener = async (showdownId: string, otherUserId: string) => {
     let otherName = "Unknown", otherPhoto = "", otherSide: "usc" | "ucla" = "ucla";
     try {
       const s = await getDoc(doc(db, "users", otherUserId));
@@ -138,7 +138,7 @@ export default function RivalsScreen() {
     } catch {}
 
     const messagesQuery = query(
-      collection(db, "matches", matchId, "messages"),
+      collection(db, "showdowns", showdownId, "messages"),
       orderBy("createdAt", "desc"), limit(1)
     );
     const unsub = onSnapshot(messagesQuery, (messagesSnap) => {
@@ -149,8 +149,8 @@ export default function RivalsScreen() {
         lastMessage = msg.text || "Sent a message";
         lastMessageAt = msg.createdAt;
       }
-      showdownsRef.current.set(matchId, {
-        matchId, otherUserId, otherName, otherPhoto, otherSide,
+      showdownsRef.current.set(showdownId, {
+        showdownId, otherUserId, otherName, otherPhoto, otherSide,
         lastMessage, lastMessageAt, isUnread: false,
       });
       const sorted = Array.from(showdownsRef.current.values()).sort(
@@ -168,10 +168,10 @@ export default function RivalsScreen() {
       await updateDoc(doc(db, "challenges", challenge.id), {
         status: "accepted", acceptedAt: serverTimestamp(),
       });
-      const matchUsers = [auth.currentUser.uid, challenge.fromUserId].sort();
-      const matchId = matchUsers.join("_");
-      await setDoc(doc(db, "matches", matchId), {
-        users: matchUsers, createdAt: serverTimestamp(),
+      const showdownUsers = [auth.currentUser.uid, challenge.fromUserId].sort();
+      const showdownId = showdownUsers.join("_");
+      await setDoc(doc(db, "showdowns", showdownId), {
+        users: showdownUsers, createdAt: serverTimestamp(),
         lastMessage: null, lastMessageAt: serverTimestamp(),
       });
 
@@ -183,7 +183,7 @@ export default function RivalsScreen() {
         [challenge.fromUserId]: challenge.fromSide,
       };
       const gameId = await createGame(
-        matchId, "cup_pong",
+        showdownId, "cup_pong",
         [auth.currentUser.uid, challenge.fromUserId],
         sides as any
       );
@@ -208,7 +208,7 @@ export default function RivalsScreen() {
   };
 
   const handleOpenChat = (s: ShowdownItem) => {
-    router.push(`/chat/${s.matchId}` as any);
+    router.push(`/chat/${s.showdownId}` as any);
   };
 
   const formatTimestamp = (ts: any) => {
@@ -373,7 +373,7 @@ export default function RivalsScreen() {
         <FlatList
           data={showdowns}
           renderItem={renderShowdownRow}
-          keyExtractor={(item) => item.matchId}
+          keyExtractor={(item) => item.showdownId}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={renderListHeader}
           ListEmptyComponent={renderEmpty}

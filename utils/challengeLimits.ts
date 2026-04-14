@@ -1,19 +1,19 @@
-// utils/swipeLimits.ts
-// Daily swipe limit — adapted from Besties rateLimits.ts
+// utils/challengeLimits.ts
+// Daily challenge limit — adapted from Besties rateLimits.ts
 import { doc, getDoc } from "firebase/firestore";
 import { Alert } from "react-native";
 import { auth, db } from "../firebaseConfig";
 
-export const DAILY_SWIPE_LIMIT = 30;
+export const DAILY_CHALLENGE_LIMIT = 30;
 
 function getTodayString(): string {
   return new Date().toLocaleDateString("en-CA"); // "2026-04-09" format
 }
 
 /**
- * Check if user has swipes remaining today
+ * Check if user has challenges remaining today
  */
-export async function canSwipe(): Promise<{ allowed: boolean; remaining: number }> {
+export async function canChallenge(): Promise<{ allowed: boolean; remaining: number }> {
   try {
     if (!auth.currentUser) return { allowed: false, remaining: 0 };
 
@@ -22,32 +22,32 @@ export async function canSwipe(): Promise<{ allowed: boolean; remaining: number 
     const userData = userDoc.data() || {};
 
     const today = getTodayString();
-    const lastDate = userData.dailySwipeDate || "";
+    const lastDate = userData.dailyChallengeDate || "";
 
     let count = 0;
     if (lastDate === today) {
-      count = userData.dailySwipeCount || 0;
+      count = userData.dailyChallengeCount || 0;
     }
 
     return {
-      allowed: count < DAILY_SWIPE_LIMIT,
-      remaining: Math.max(0, DAILY_SWIPE_LIMIT - count),
+      allowed: count < DAILY_CHALLENGE_LIMIT,
+      remaining: Math.max(0, DAILY_CHALLENGE_LIMIT - count),
     };
   } catch (error) {
-    console.error("Error checking swipe limit:", error);
-    return { allowed: true, remaining: DAILY_SWIPE_LIMIT };
+    console.error("Error checking challenge limit:", error);
+    return { allowed: true, remaining: DAILY_CHALLENGE_LIMIT };
   }
 }
 
 /**
  * Check and show alert if limit reached
  */
-export async function canSwipeWithAlert(): Promise<boolean> {
-  const { allowed, remaining } = await canSwipe();
+export async function canChallengeWithAlert(): Promise<boolean> {
+  const { allowed, remaining } = await canChallenge();
   if (!allowed) {
     Alert.alert(
       "Daily Limit Reached",
-      "You've used all 30 swipes for today.\nCome back tomorrow for more!",
+      "You've used all 30 challenges for today.\nCome back tomorrow for more!",
       [{ text: "Got It" }]
     );
     return false;
