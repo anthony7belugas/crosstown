@@ -47,7 +47,7 @@ export async function blockUser(blockedId: string): Promise<void> {
   await deleteShowdownsBetweenUsers(currentUser.uid, blockedId);
 
   // Delete any challenges between the two users
-  await deleteLikesBetweenUsers(currentUser.uid, blockedId);
+  await deleteChallengesBetweenUsers(currentUser.uid, blockedId);
 }
 
 /**
@@ -124,11 +124,11 @@ async function deleteShowdownsBetweenUsers(uid1: string, uid2: string): Promise<
     });
     await Promise.all(deletePromises);
   } catch (error) {
-    console.error("Error deleting matches:", error);
+    console.error("Error deleting showdowns:", error);
   }
 }
 
-async function deleteLikesBetweenUsers(uid1: string, uid2: string): Promise<void> {
+async function deleteChallengesBetweenUsers(uid1: string, uid2: string): Promise<void> {
   try {
     const q1 = query(collection(db, "challenges"), where("fromUserId", "==", uid1), where("toUserId", "==", uid2));
     const q2 = query(collection(db, "challenges"), where("fromUserId", "==", uid2), where("toUserId", "==", uid1));
@@ -138,6 +138,6 @@ async function deleteLikesBetweenUsers(uid1: string, uid2: string): Promise<void
     s2.docs.forEach((d) => deletePromises.push(deleteDoc(d.ref)));
     await Promise.all(deletePromises);
   } catch (error) {
-    console.error("Error deleting likes:", error);
+    console.error("Error deleting challenges:", error);
   }
 }

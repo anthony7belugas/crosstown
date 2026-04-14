@@ -201,15 +201,15 @@ exports.onNewMessage = onDocumentCreated(
 // Triggers when a challenge document is created
 // ============================================
 
-exports.onNewChallenge = onDocumentCreated("likes/{likeId}", async (event) => {
+exports.onNewChallenge = onDocumentCreated("challenges/{challengeId}", async (event) => {
   const snapshot = event.data;
   if (!snapshot) return null;
 
-  const like = snapshot.data();
-  const toUserId = like.toUserId;
-  const fromUserId = like.fromUserId;
+  const challenge = snapshot.data();
+  const toUserId = challenge.toUserId;
+  const fromUserId = challenge.fromUserId;
 
-  console.log("New like from", fromUserId, "to", toUserId);
+  console.log("New challenge from", fromUserId, "to", toUserId);
 
   try {
     // Check if blocked

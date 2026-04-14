@@ -63,7 +63,7 @@ export default function ProfileScreen() {
       setLoading(false);
     });
 
-    // Count likes received
+    // Count challenges received
     const loadChallenges = async () => {
       try {
         const challengesSnap = await getDocs(
@@ -75,7 +75,7 @@ export default function ProfileScreen() {
       }
     };
 
-    // Count matches
+    // Count showdowns
     const loadShowdowns = async () => {
       try {
         const showdownsSnap = await getDocs(
@@ -135,7 +135,7 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Likes counter card */}
+        {/* Challenges counter card */}
         <Pressable style={styles.challengesCard}>
           <View style={styles.challengesLeft}>
             <FontAwesome name="bolt" size={22} color={accentColor(profileSide)} />
@@ -284,7 +284,7 @@ const createStyles = (_s: string) => StyleSheet.create({
   },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 120 },
 
-  // Likes card
+  // Challenges card
   challengesCard: {
     flexDirection: "row",
     alignItems: "center",
