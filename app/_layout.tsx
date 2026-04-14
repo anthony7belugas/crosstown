@@ -162,11 +162,13 @@ export default function RootLayout() {
 
     try {
       switch (data.type) {
-        case "challenge_received":
+        // Someone challenged you — go to rivals to see incoming challenges
+        case "challenge":
           router.push("/(tabs)/rivals" as any);
           break;
 
-        case "challenge_accepted":
+        // A rival accepted your challenge — showdown created, open chat
+        case "showdown":
           if (data.showdownId) {
             router.push(`/chat/${data.showdownId}` as any);
           } else {
@@ -174,7 +176,8 @@ export default function RootLayout() {
           }
           break;
 
-        case "game_turn":
+        // It's your turn in a game — open the correct game screen
+        case "your_turn":
           if (data.gameId && data.gameType === "cup_pong") {
             router.push(`/game/cup-pong/${data.gameId}` as any);
           } else if (data.gameId && data.gameType === "word_hunt") {
@@ -184,14 +187,19 @@ export default function RootLayout() {
           }
           break;
 
+        // Game finished — show the result screen
         case "game_result":
           if (data.gameId) {
             router.push(`/game/result/${data.gameId}` as any);
+          } else if (data.showdownId) {
+            // Fallback: open chat if gameId wasn't included
+            router.push(`/chat/${data.showdownId}` as any);
           } else {
             router.push("/(tabs)/rivals" as any);
           }
           break;
 
+        // New message from a rival
         case "message":
           if (data.showdownId) {
             router.push(`/chat/${data.showdownId}` as any);
@@ -200,8 +208,16 @@ export default function RootLayout() {
           }
           break;
 
+        // Weekly result or scoreboard-related — go to scoreboard
+        case "weekly_result":
         case "scoreboard":
           router.push("/(tabs)/scoreboard" as any);
+          break;
+
+        // Gap alert or nudge — send them to duels to play
+        case "gap_alert":
+        case "nudge":
+          router.push("/(tabs)/duels" as any);
           break;
 
         default:
@@ -244,7 +260,7 @@ export default function RootLayout() {
         const email = user.email || "";
         const side = email.endsWith("@usc.edu") ? "usc" : "ucla";
         router.replace({
-          pathname: "/onboarding/waitingVerify",
+          pathname: "/onboarding/waitingVerify" as any,
           params: { side },
         });
         return;
@@ -276,7 +292,7 @@ export default function RootLayout() {
             } else {
               setHasNavigated(true);
               router.replace({
-                pathname: "/enableNotifications",
+                pathname: "/enableNotifications" as any,
                 params: { side },
               });
             }
@@ -285,30 +301,13 @@ export default function RootLayout() {
             router.replace("/(tabs)/duels");
           }
         } else {
-          // Smart resume — check which onboarding step to send them to
           const email = user.email || "";
           const side = email.endsWith("@usc.edu") ? "usc" : "ucla";
           setHasNavigated(true);
-
-          if (!userData || !userData.name) {
-            // No name yet — start of onboarding
-            router.replace({
-              pathname: "/onboarding/name",
-              params: { side },
-            });
-          } else if (!userData.photos || userData.photos.length === 0) {
-            // Has name but no photos
-            router.replace({
-              pathname: "/onboarding/photos",
-              params: { side },
-            });
-          } else {
-            // Has name and photos but profile not completed — needs major/year
-            router.replace({
-              pathname: "/onboarding/profileInfo",
-              params: { side },
-            });
-          }
+          router.replace({
+            pathname: "/onboarding/nameAndDob" as any,
+            params: { side },
+          });
         }
       } catch (error) {
         console.error("Error checking profile:", error);

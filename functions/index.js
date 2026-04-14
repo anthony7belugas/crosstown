@@ -536,7 +536,7 @@ exports.onGameUpdated = onDocumentUpdated("games/{gameId}", async (event) => {
         const gameLabel = after.type === "cup_pong" ? "Cup Pong" : "Word Hunt";
         if (loserToken) {
           await sendPush(loserToken, `${winnerName} won ${gameLabel} 🏆`, "Rematch?",
-            { showdownId: after.showdownId, type: "game_result" });
+            { gameId: event.params.gameId, showdownId: after.showdownId, type: "game_result" });
         }
       }
 
