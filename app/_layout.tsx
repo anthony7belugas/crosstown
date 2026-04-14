@@ -285,13 +285,30 @@ export default function RootLayout() {
             router.replace("/(tabs)/duels");
           }
         } else {
+          // Smart resume — check which onboarding step to send them to
           const email = user.email || "";
           const side = email.endsWith("@usc.edu") ? "usc" : "ucla";
           setHasNavigated(true);
-          router.replace({
-            pathname: "/onboarding/nameAndDob",
-            params: { side },
-          });
+
+          if (!userData || !userData.name) {
+            // No name yet — start of onboarding
+            router.replace({
+              pathname: "/onboarding/name",
+              params: { side },
+            });
+          } else if (!userData.photos || userData.photos.length === 0) {
+            // Has name but no photos
+            router.replace({
+              pathname: "/onboarding/photos",
+              params: { side },
+            });
+          } else {
+            // Has name and photos but profile not completed — needs major/year
+            router.replace({
+              pathname: "/onboarding/profileInfo",
+              params: { side },
+            });
+          }
         }
       } catch (error) {
         console.error("Error checking profile:", error);

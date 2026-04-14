@@ -19,7 +19,6 @@ import { removePushToken } from "../../utils/pushNotifications";
 
 interface UserData {
   name: string;
-  age: number;
   side: "usc" | "ucla";
   photos: string[];
   major: string;
@@ -50,7 +49,6 @@ export default function ProfileScreen() {
         const data = snapshot.data();
         setUserData({
           name: data.name || "",
-          age: data.age || 0,
           side: data.side || "usc",
           photos: data.photos || [],
           major: data.major || "",
@@ -219,10 +217,10 @@ export default function ProfileScreen() {
               <Text style={styles.sideBadgeText}>{sideName}</Text>
             </View>
             <Text style={styles.profileName}>
-              {userData?.name}, {userData?.age}
+              {userData?.name}
             </Text>
             <Text style={styles.profileDetails}>
-              {userData?.major} • Class of {userData?.gradYear}
+              {userData?.major} • {userData?.gradYear === "Graduate" ? "Graduate" : `Class of ${userData?.gradYear}`}
             </Text>
             {userData?.bio ? (
               <Text style={styles.profileBio}>{userData.bio}</Text>

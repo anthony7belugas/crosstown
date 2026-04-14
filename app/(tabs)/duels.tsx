@@ -28,7 +28,6 @@ const SWIPE_THRESHOLD = width * 0.25;
 interface ProfileCard {
   uid: string;
   name: string;
-  age: number;
   side: "usc" | "ucla";
   photos: string[];
   major: string;
@@ -115,7 +114,7 @@ export default function DuelsScreen() {
         if (excludedIds.has(d.id)) return;
         const data = d.data();
         eligible.push({
-          uid: d.id, name: data.name || "Unknown", age: data.age || 0,
+          uid: d.id, name: data.name || "Unknown",
           side: data.side, photos: data.photos || [], major: data.major || "",
           gradYear: data.gradYear || "", bio: data.bio || "",
         });
@@ -369,7 +368,7 @@ export default function DuelsScreen() {
               </View>
             </View>
             <Text style={styles.cardMeta}>
-              {currentProfile.major} · Class of {currentProfile.gradYear}
+              {currentProfile.major} · {currentProfile.gradYear === "Graduate" ? "Graduate" : `Class of ${currentProfile.gradYear}`}
             </Text>
           </View>
 

@@ -46,7 +46,6 @@ import { setCachedProfile } from "../../utils/userProfileCache";
 interface UserProfile {
   uid: string;
   name: string;
-  age: number;
   side: "usc" | "ucla";
   photos: string[];
   major: string;
@@ -98,7 +97,6 @@ export default function UserProfilePage() {
         setProfile({
           uid: userId as string,
           name: data.name || "Unknown",
-          age: data.age || 0,
           side: data.side || "usc",
           photos: data.photos || [],
           major: data.major || "",
@@ -296,10 +294,10 @@ export default function UserProfilePage() {
               <Text style={styles.sideBadgeText}>{sideName}</Text>
             </View>
             <Text style={styles.profileName}>
-              {profile.name}{profile.age ? `, ${profile.age}` : ""}
+              {profile.name}
             </Text>
             <Text style={styles.profileDetails}>
-              {profile.major}{profile.gradYear ? ` • Class of ${profile.gradYear}` : ""}
+              {profile.major}{profile.gradYear ? ` • ${profile.gradYear === "Graduate" ? "Graduate" : `Class of ${profile.gradYear}`}` : ""}
             </Text>
             {profile.bio ? (
               <Text style={styles.profileBio}>{profile.bio}</Text>

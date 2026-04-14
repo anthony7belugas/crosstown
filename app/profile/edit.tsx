@@ -29,7 +29,7 @@ const MAJORS = [
   "Sociology", "Theater", "Undecided", "Other",
 ];
 
-const YEARS = ["2025", "2026", "2027", "2028", "2029", "2030"];
+const YEARS = ["2026", "2027", "2028", "2029", "2030", "2031", "Graduate"];
 
 export default function EditProfileScreen() {
   const insets = useSafeAreaInsets();

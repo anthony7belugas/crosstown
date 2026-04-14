@@ -5,7 +5,8 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import React, { useRef, useState } from "react";
 import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { auth } from "../../firebaseConfig";
+import { auth, db } from "../../firebaseConfig";
+import { doc, getDoc } from "firebase/firestore";
 import { NEUTRAL_ACCENT } from "../../utils/colors";
 
 
@@ -24,9 +25,31 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email.toLowerCase().trim(), password);
-      // TODO: check if profile is completed, route accordingly
-      router.replace("/(tabs)/duels");
+      const cred = await signInWithEmailAndPassword(auth, email.toLowerCase().trim(), password);
+
+      // Determine side from email
+      const userEmail = cred.user.email || "";
+      const side = userEmail.endsWith("@usc.edu") ? "usc" : "ucla";
+
+      // Check if email is verified
+      if (!cred.user.emailVerified) {
+        router.replace({ pathname: "/onboarding/waitingVerify", params: { side } });
+        return;
+      }
+
+      // Check profile completion — route to correct onboarding step
+      const userDoc = await getDoc(doc(db, "users", cred.user.uid));
+      const data = userDoc.exists() ? userDoc.data() : null;
+
+      if (!data || !data.name) {
+        router.replace({ pathname: "/onboarding/name", params: { side } });
+      } else if (!data.photos || data.photos.length === 0) {
+        router.replace({ pathname: "/onboarding/photos", params: { side } });
+      } else if (data.profileCompleted !== true) {
+        router.replace({ pathname: "/onboarding/profileInfo", params: { side } });
+      } else {
+        router.replace("/(tabs)/duels");
+      }
     } catch (error: any) {
       if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
         Alert.alert("Login Failed", "Invalid email or password.");

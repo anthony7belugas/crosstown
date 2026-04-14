@@ -18,6 +18,9 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { doc, setDoc } from "firebase/firestore";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { auth, db, storage } from "../../firebaseConfig";
 import { accentColor, BG_PRIMARY, TEXT_SECONDARY } from "../../utils/colors";
 
 const { width } = Dimensions.get("window");
@@ -79,15 +82,55 @@ export default function PhotosScreen() {
     setPhotos(photos.filter((_, i) => i !== index));
   };
 
-  const handleContinue = () => {
+  const uploadPhotos = async (uris: string[]): Promise<string[]> => {
+    const urls: string[] = [];
+    for (let i = 0; i < uris.length; i++) {
+      const response = await fetch(uris[i]);
+      const blob = await response.blob();
+      const filename = `${Date.now()}_${i}.jpg`;
+      const storageRef = ref(
+        storage,
+        `photos/${auth.currentUser!.uid}/${filename}`
+      );
+      await uploadBytes(storageRef, blob);
+      const url = await getDownloadURL(storageRef);
+      urls.push(url);
+    }
+    return urls;
+  };
+
+  const handleContinue = async () => {
     if (photos.length === 0) {
       Alert.alert("Photo Required", "Add at least 1 photo to continue.");
       return;
     }
-    router.push({
-      pathname: "/onboarding/profileInfo",
-      params: { ...params, photoUris: JSON.stringify(photos) },
-    });
+    if (!auth.currentUser) {
+      Alert.alert("Error", "Not authenticated.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Upload to Storage and get URLs
+      const photoUrls = await uploadPhotos(photos);
+
+      // Progressive save — merge:true so we don't overwrite name/side
+      await setDoc(
+        doc(db, "users", auth.currentUser.uid),
+        { photos: photoUrls },
+        { merge: true }
+      );
+
+      router.push({
+        pathname: "/onboarding/profileInfo",
+        params: { side },
+      });
+    } catch (error) {
+      console.error("Error uploading photos:", error);
+      Alert.alert("Error", "Failed to upload photos. Please try again.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   // Renders one slot — filled or empty
@@ -206,11 +249,11 @@ export default function PhotosScreen() {
       >
         <Pressable
           onPress={handleContinue}
-          disabled={photos.length === 0}
+          disabled={photos.length === 0 || uploading}
           style={[
             styles.continueButton,
             { backgroundColor: accent },
-            photos.length === 0 && styles.disabled,
+            (photos.length === 0 || uploading) && styles.disabled,
             Platform.OS === "ios" && {
               shadowColor: accent,
               shadowOffset: { width: 0, height: 8 },
@@ -219,8 +262,17 @@ export default function PhotosScreen() {
             },
           ]}
         >
-          <Text style={styles.continueText}>Continue</Text>
-          <FontAwesome name="arrow-right" size={18} color="#1E293B" />
+          {uploading ? (
+            <>
+              <ActivityIndicator color="#1E293B" />
+              <Text style={styles.continueText}>Uploading...</Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.continueText}>Continue</Text>
+              <FontAwesome name="arrow-right" size={18} color="#1E293B" />
+            </>
+          )}
         </Pressable>
       </View>
     </View>

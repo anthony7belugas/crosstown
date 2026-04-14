@@ -1,14 +1,13 @@
 // app/onboarding/profileInfo.tsx
-// Final onboarding screen — creates Firestore user doc with all collected data, uploads photos
+// Final onboarding screen — saves major, gradYear, bio and sets profileCompleted
 import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { doc, setDoc } from "firebase/firestore";
 import React, { useState } from "react";
 import { ActivityIndicator, Alert, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { auth, db, storage } from "../../firebaseConfig";
+import { auth, db } from "../../firebaseConfig";
 import { accentColor, accentBg } from "../../utils/colors";
 
 
@@ -19,12 +18,10 @@ const MAJORS = [
   "Sociology", "English", "History", "Philosophy", "Other", "Undecided",
 ];
 
-const YEARS = ["2026", "2027", "2028", "2029", "2030", "2031"];
+const YEARS = ["2026", "2027", "2028", "2029", "2030", "2031", "Graduate"];
 
 export default function ProfileInfoScreen() {
-  const params = useLocalSearchParams<{
-    side: string; name: string; dob: string; age: string; photoUris: string;
-  }>();
+  const { side } = useLocalSearchParams<{ side: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [major, setMajor] = useState<string | null>(null);
@@ -33,21 +30,7 @@ export default function ProfileInfoScreen() {
   const [loading, setLoading] = useState(false);
 
   const isValid = major !== null && gradYear !== null;
-  const styles = createStyles(params.side);
-
-  const uploadPhotos = async (uris: string[]): Promise<string[]> => {
-    const urls: string[] = [];
-    for (let i = 0; i < uris.length; i++) {
-      const response = await fetch(uris[i]);
-      const blob = await response.blob();
-      const filename = `${Date.now()}_${i}.jpg`;
-      const storageRef = ref(storage, `photos/${auth.currentUser!.uid}/${filename}`);
-      await uploadBytes(storageRef, blob);
-      const url = await getDownloadURL(storageRef);
-      urls.push(url);
-    }
-    return urls;
-  };
+  const styles = createStyles(side);
 
   const handleFinish = async () => {
     Keyboard.dismiss();
@@ -56,18 +39,8 @@ export default function ProfileInfoScreen() {
 
     setLoading(true);
     try {
-      // Upload photos to Firebase Storage
-      const photoUris: string[] = JSON.parse(params.photoUris || "[]");
-      const photoUrls = await uploadPhotos(photoUris);
-
-      // Create user document
+      // Progressive save — only this screen's fields + completion flag
       await setDoc(doc(db, "users", auth.currentUser.uid), {
-        side: params.side,
-        email: auth.currentUser.email,
-        name: params.name,
-        dateOfBirth: params.dob,
-        age: parseInt(params.age),
-        photos: photoUrls,
         major,
         gradYear,
         bio: bio.trim() || "",
@@ -76,11 +49,10 @@ export default function ProfileInfoScreen() {
         blockedUsers: [],
         blockedByUsers: [],
         profileCompleted: true,
-        createdAt: serverTimestamp(),
-      });
+      }, { merge: true });
 
-      // Navigate to main app
-      router.replace({ pathname: "/enableNotifications", params: { side: params.side } });
+      // Navigate to notification prompt
+      router.replace({ pathname: "/enableNotifications", params: { side } });
     } catch (error) {
       console.error("Error creating profile:", error);
       Alert.alert("Error", "Failed to create your profile. Please try again.");
@@ -114,7 +86,7 @@ export default function ProfileInfoScreen() {
           </View>
 
           {/* Grad Year */}
-          <Text style={[styles.sectionLabel, { marginTop: 24 }]}>Graduation Year</Text>
+          <Text style={[styles.sectionLabel, { marginTop: 24 }]}>Year</Text>
           <View style={styles.tagsContainer}>
             {YEARS.map((y) => (
               <Pressable key={y} style={[styles.tag, gradYear === y && styles.tagSelected]} onPress={() => setGradYear(y)}>

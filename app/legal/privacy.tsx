@@ -43,7 +43,6 @@ const PrivacyPolicyScreen = () => {
         </Text>
         <Text style={styles.bulletText}>• Name and university email address (USC or UCLA)</Text>
         <Text style={styles.bulletText}>• Your school affiliation (USC or UCLA)</Text>
-        <Text style={styles.bulletText}>• Date of birth (to verify you are 18 or older)</Text>
         <Text style={styles.bulletText}>• Photos you upload to your profile</Text>
         <Text style={styles.bulletText}>• Academic information (major, graduation year)</Text>
         <Text style={styles.bulletText}>• Profile bio (optional, user-provided)</Text>

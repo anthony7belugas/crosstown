@@ -33,7 +33,7 @@ export default function WaitingVerifyScreen() {
         await auth.currentUser?.reload();
         if (auth.currentUser?.emailVerified) {
           clearInterval(interval);
-          router.replace({ pathname: "/onboarding/nameAndDob", params: { side } });
+          router.replace({ pathname: "/onboarding/name", params: { side } });
         }
       } catch (e) {
         // ignore reload errors
