@@ -1,9 +1,10 @@
 // app/onboarding/name.tsx
-// Name entry — saves progressively to Firestore with merge:true
+// FIX #3: Falls back to reading side from Firestore if route param is lost
+//         (e.g. app killed mid-onboarding and state restored without params)
 import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import React, { useState } from "react";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -22,11 +23,22 @@ import { auth, db } from "../../firebaseConfig";
 import { accentColor } from "../../utils/colors";
 
 export default function NameScreen() {
-  const { side } = useLocalSearchParams<{ side: string }>();
+  const { side: paramSide } = useLocalSearchParams<{ side: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // ── FIX #3: Resolve side from param, then Firestore fallback ──
+  const [side, setSide] = useState(paramSide || "usc");
+  useEffect(() => {
+    if (!paramSide && auth.currentUser) {
+      getDoc(doc(db, "users", auth.currentUser.uid)).then((snap) => {
+        const s = snap.data()?.side;
+        if (s) setSide(s);
+      }).catch(() => {});
+    }
+  }, []);
 
   const styles = createStyles(side);
   const isValid = name.trim().length >= 2;

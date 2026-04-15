@@ -1,9 +1,9 @@
 // app/onboarding/profileInfo.tsx
-// Final onboarding screen — saves major, gradYear, bio and sets profileCompleted
+// FIX #3: Falls back to reading side from Firestore if route param is lost
 import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { doc, setDoc } from "firebase/firestore";
-import React, { useState } from "react";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,13 +21,24 @@ const MAJORS = [
 const YEARS = ["2026", "2027", "2028", "2029", "2030", "2031", "Graduate"];
 
 export default function ProfileInfoScreen() {
-  const { side } = useLocalSearchParams<{ side: string }>();
+  const { side: paramSide } = useLocalSearchParams<{ side: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [major, setMajor] = useState<string | null>(null);
   const [gradYear, setGradYear] = useState<string | null>(null);
   const [bio, setBio] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // ── FIX #3: Resolve side from param, then Firestore fallback ──
+  const [side, setSide] = useState(paramSide || "usc");
+  useEffect(() => {
+    if (!paramSide && auth.currentUser) {
+      getDoc(doc(db, "users", auth.currentUser.uid)).then((snap) => {
+        const s = snap.data()?.side;
+        if (s) setSide(s);
+      }).catch(() => {});
+    }
+  }, []);
 
   const isValid = major !== null && gradYear !== null;
   const styles = createStyles(side);

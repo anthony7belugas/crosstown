@@ -1,10 +1,11 @@
 // app/enableNotifications.tsx
-// Shown after onboarding completes — asks user to enable push notifications
+// FIX #3: Falls back to reading side from Firestore instead of hardcoded "usc"
+//         (the old `side || "usc"` was wrong for every UCLA user whose param dropped)
 import { FontAwesome } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { doc, updateDoc } from "firebase/firestore";
-import React, { useState } from "react";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import React, { useEffect, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../firebaseConfig";
@@ -12,13 +13,22 @@ import { registerForPushNotifications } from "../utils/pushNotifications";
 import { accentColor, accentBg } from "../utils/colors";
 
 export default function EnableNotificationsScreen() {
-  const { side } = useLocalSearchParams<{ side: string }>();
+  const { side: paramSide } = useLocalSearchParams<{ side: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const bellScale = new Animated.Value(1);
 
-  const userSide = side || "usc";
+  // ── FIX #3: Resolve side from param, then Firestore fallback ──
+  const [side, setSide] = useState(paramSide || "usc");
+  useEffect(() => {
+    if (!paramSide && auth.currentUser) {
+      getDoc(doc(db, "users", auth.currentUser.uid)).then((snap) => {
+        const s = snap.data()?.side;
+        if (s) setSide(s);
+      }).catch(() => {});
+    }
+  }, []);
 
   // If permissions already granted on mount, mark shown and skip straight through
   React.useEffect(() => {
@@ -67,13 +77,13 @@ export default function EnableNotificationsScreen() {
     await markShownAndNavigate();
   };
 
-  const styles = createStyles(userSide);
+  const styles = createStyles(side);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 32 }]}>
       <View style={styles.content}>
         <Animated.View style={[styles.iconCircle, { transform: [{ scale: bellScale }] }]}>
-          <FontAwesome name="bell" size={48} color={accentColor(userSide)} />
+          <FontAwesome name="bell" size={48} color={accentColor(side)} />
         </Animated.View>
 
         <Text style={styles.title}>Stay in the Game</Text>

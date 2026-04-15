@@ -1,23 +1,38 @@
 // app/onboarding/waitingVerify.tsx
-// Polls Firebase Auth until email is verified, then continues onboarding
+// FIX #5: Added hasNavigatedRef to prevent double navigation from polling interval
+// FIX #3: Falls back to Firestore for side if route param is lost
 import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { doc, getDoc } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import React, { useEffect, useRef, useState } from "react";
 import { Alert, Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { auth } from "../../firebaseConfig";
+import { auth, db } from "../../firebaseConfig";
 import { accentColor } from "../../utils/colors";
 
 
 export default function WaitingVerifyScreen() {
-  const { side } = useLocalSearchParams<{ side: string }>();
+  const { side: paramSide } = useLocalSearchParams<{ side: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [resendCooldown, setResendCooldown] = useState(0);
   const spinAnim = useRef(new Animated.Value(0)).current;
 
-  // Spin animation
+  // ── FIX #3: Resolve side from param or Firestore ──
+  const [side, setSide] = useState(paramSide || "usc");
+  useEffect(() => {
+    if (!paramSide && auth.currentUser) {
+      getDoc(doc(db, "users", auth.currentUser.uid)).then((snap) => {
+        const s = snap.data()?.side;
+        if (s) setSide(s);
+      }).catch(() => {});
+    }
+  }, []);
+
+  // ── FIX #5: Prevent double navigation from polling interval ──
+  const hasNavigatedRef = useRef(false);
+
   const styles = createStyles(side);
 
   useEffect(() => {
@@ -28,10 +43,17 @@ export default function WaitingVerifyScreen() {
 
   // Poll for verification every 3 seconds
   useEffect(() => {
+    hasNavigatedRef.current = false;
+
     const interval = setInterval(async () => {
+      // Skip if already navigating
+      if (hasNavigatedRef.current) return;
+
       try {
         await auth.currentUser?.reload();
         if (auth.currentUser?.emailVerified) {
+          // Set flag BEFORE clearing interval to prevent race condition
+          hasNavigatedRef.current = true;
           clearInterval(interval);
           router.replace({ pathname: "/onboarding/name", params: { side } });
         }
@@ -40,7 +62,7 @@ export default function WaitingVerifyScreen() {
       }
     }, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [side]);
 
   // Resend cooldown timer
   useEffect(() => {

@@ -1,13 +1,17 @@
 // app/auth/login.tsx
+// FIX #1: Added accountStatus/isSuspended checks (banned users can no longer log in)
+// FIX #6: Added notificationPromptShown check for returning users
 import { FontAwesome } from "@expo/vector-icons";
 import { Link, useRouter } from "expo-router";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import * as Notifications from "expo-notifications";
 import React, { useRef, useState } from "react";
 import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebaseConfig";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { NEUTRAL_ACCENT } from "../../utils/colors";
+import { removePushToken } from "../../utils/pushNotifications";
 
 
 export default function LoginScreen() {
@@ -41,6 +45,23 @@ export default function LoginScreen() {
       const userDoc = await getDoc(doc(db, "users", cred.user.uid));
       const data = userDoc.exists() ? userDoc.data() : null;
 
+      // ── FIX #1: Block deleted and suspended accounts ──
+      if (data?.accountStatus === "deleted") {
+        await removePushToken();
+        await signOut(auth);
+        Alert.alert("Account Deleted", "Your account has been deleted.");
+        return;
+      }
+      if (data?.isSuspended) {
+        await removePushToken();
+        await signOut(auth);
+        Alert.alert(
+          "Account Suspended",
+          "Your account has been suspended for violating community guidelines."
+        );
+        return;
+      }
+
       if (!data || !data.name) {
         router.replace({ pathname: "/onboarding/name", params: { side } });
       } else if (!data.photos || data.photos.length === 0) {
@@ -48,7 +69,24 @@ export default function LoginScreen() {
       } else if (data.profileCompleted !== true) {
         router.replace({ pathname: "/onboarding/profileInfo", params: { side } });
       } else {
-        router.replace("/(tabs)/duels");
+        // ── FIX #6: Show notification prompt if never shown ──
+        if (!data.notificationPromptShown) {
+          const { status } = await Notifications.getPermissionsAsync();
+          if (status === "granted") {
+            // Already enabled — mark shown, go to tabs
+            await updateDoc(doc(db, "users", cred.user.uid), {
+              notificationPromptShown: true,
+            });
+            router.replace("/(tabs)/duels");
+          } else {
+            router.replace({
+              pathname: "/enableNotifications" as any,
+              params: { side },
+            });
+          }
+        } else {
+          router.replace("/(tabs)/duels");
+        }
       }
     } catch (error: any) {
       if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {

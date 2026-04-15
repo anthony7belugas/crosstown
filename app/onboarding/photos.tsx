@@ -1,9 +1,10 @@
 // app/onboarding/photos.tsx
+// FIX #3: Falls back to reading side from Firestore if route param is lost
 import { FontAwesome } from "@expo/vector-icons";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -18,7 +19,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { auth, db, storage } from "../../firebaseConfig";
 import { accentColor, BG_PRIMARY, TEXT_SECONDARY } from "../../utils/colors";
@@ -35,7 +36,19 @@ export default function PhotosScreen() {
   const insets = useSafeAreaInsets();
   const [photos, setPhotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
-  const side = params.side as string;
+
+  // ── FIX #3: Resolve side from param, then Firestore fallback ──
+  const paramSide = params.side as string | undefined;
+  const [side, setSide] = useState(paramSide || "usc");
+  useEffect(() => {
+    if (!paramSide && auth.currentUser) {
+      getDoc(doc(db, "users", auth.currentUser.uid)).then((snap) => {
+        const s = snap.data()?.side;
+        if (s) setSide(s);
+      }).catch(() => {});
+    }
+  }, []);
+
   const accent = accentColor(side);
 
   const compressImage = async (uri: string): Promise<string> => {

@@ -1,13 +1,16 @@
 // app/onboarding/emailVerify.tsx
+// FIX #4: Creates Firestore user doc immediately at signup (side + email + createdAt)
+//         so the doc exists for _layout ban checks and Cloud Function email templates
 import { FontAwesome } from "@expo/vector-icons";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import React, { useRef, useState } from "react";
 import { ActivityIndicator, Alert, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { auth } from "../../firebaseConfig";
+import { auth, db } from "../../firebaseConfig";
 import { accentColor, schoolColor } from "../../utils/colors";
 
 
@@ -38,6 +41,16 @@ export default function EmailVerifyScreen() {
     setLoading(true);
     try {
       const cred = await createUserWithEmailAndPassword(auth, email.toLowerCase().trim(), password);
+
+      // ── FIX #4: Create user doc immediately so it exists for _layout ──
+      // ban checks, Cloud Function email templates, and side persistence.
+      // merge:true so it won't overwrite if doc somehow already exists.
+      await setDoc(doc(db, "users", cred.user.uid), {
+        email: email.toLowerCase().trim(),
+        side,
+        createdAt: serverTimestamp(),
+      }, { merge: true });
+
       // Send verification email via Resend Cloud Function
       try {
         const functions = getFunctions();
