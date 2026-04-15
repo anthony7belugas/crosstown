@@ -21,6 +21,9 @@ export default function WaitingVerifyScreen() {
 
   // ── FIX #3: Resolve side from param or Firestore ──
   const [side, setSide] = useState(paramSide || "usc");
+  const sideRef = useRef(side);
+  useEffect(() => { sideRef.current = side; }, [side]);
+
   useEffect(() => {
     if (!paramSide && auth.currentUser) {
       getDoc(doc(db, "users", auth.currentUser.uid)).then((snap) => {
@@ -31,6 +34,9 @@ export default function WaitingVerifyScreen() {
   }, []);
 
   // ── FIX #5: Prevent double navigation from polling interval ──
+  // Initialized once — never reset. The polling effect reads sideRef
+  // instead of depending on side state, so the interval is created
+  // once and never torn down/recreated (which was resetting this flag).
   const hasNavigatedRef = useRef(false);
 
   const styles = createStyles(side);
@@ -42,9 +48,9 @@ export default function WaitingVerifyScreen() {
   }, []);
 
   // Poll for verification every 3 seconds
+  // Uses sideRef so the interval is created once and never torn down —
+  // this prevents the [side] dependency from resetting hasNavigatedRef.
   useEffect(() => {
-    hasNavigatedRef.current = false;
-
     const interval = setInterval(async () => {
       // Skip if already navigating
       if (hasNavigatedRef.current) return;
@@ -55,14 +61,14 @@ export default function WaitingVerifyScreen() {
           // Set flag BEFORE clearing interval to prevent race condition
           hasNavigatedRef.current = true;
           clearInterval(interval);
-          router.replace({ pathname: "/onboarding/name", params: { side } });
+          router.replace({ pathname: "/onboarding/name", params: { side: sideRef.current } });
         }
       } catch (e) {
         // ignore reload errors
       }
     }, 3000);
     return () => clearInterval(interval);
-  }, [side]);
+  }, []);
 
   // Resend cooldown timer
   useEffect(() => {
