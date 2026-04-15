@@ -157,7 +157,7 @@ export default function EditProfileScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={accentColor(_s)} />
+          <ActivityIndicator size="large" color={accentColor(userSide)} />
         </View>
       </View>
     );
@@ -204,7 +204,7 @@ export default function EditProfileScreen() {
               ) : (
                 <View style={styles.addPhotoPlaceholder}>
                   {uploadingPhoto && i === photos.length ? (
-                    <ActivityIndicator size="small" color={accentColor(_s)} />
+                    <ActivityIndicator size="small" color={accentColor(userSide)} />
                   ) : (
                     <FontAwesome name="plus" size={20} color="rgba(255,255,255,0.2)" />
                   )}

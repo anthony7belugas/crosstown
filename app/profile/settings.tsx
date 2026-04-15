@@ -1,24 +1,19 @@
 // app/profile/settings.tsx
-// Settings — adapted from Besties settings.tsx
+// Settings — notification prefs wired to Firestore, legal links, push token cleared on logout
 import { FontAwesome } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { deleteUser, signOut } from "firebase/auth";
-import {
-  collection, deleteDoc, doc, getDoc, getDocs, query, where,
-} from "firebase/firestore";
+import { signOut } from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import {
-  Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View,
+  Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebaseConfig";
 import { accentColor, accentBg } from "../../utils/colors";
+import { removePushToken } from "../../utils/pushNotifications";
 
-
-interface BlockedUser {
-  uid: string;
-  name: string;
-}
+const SUPPORT_EMAIL = "support@crosstownapp.com";
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -26,35 +21,63 @@ export default function SettingsScreen() {
   const [notifShowdowns, setNotifShowdowns] = useState(true);
   const [notifMessages, setNotifMessages] = useState(true);
   const [notifChallenges, setNotifChallenges] = useState(true);
-  const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
-  const [deleting, setDeleting] = useState(false);
   const [userSide, setUserSide] = useState<string>("usc");
 
+  // ─── Load user data + notification prefs on mount ───────────
   useEffect(() => {
-    loadBlockedUsers();
-    // Load user side for accent colors
-    const loadSide = async () => {
+    const loadUserData = async () => {
       if (!auth.currentUser) return;
       try {
         const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
-        if (snap.exists()) setUserSide(snap.data().side || "usc");
-      } catch {}
+        if (!snap.exists()) return;
+        const data = snap.data();
+
+        // Side for accent colors
+        if (data.side) setUserSide(data.side);
+
+        // Notification preferences — default to true if not set
+        const prefs = data.notificationPrefs || {};
+        setNotifShowdowns(prefs.showdowns !== false);
+        setNotifMessages(prefs.messages !== false);
+        setNotifChallenges(prefs.challenges !== false);
+      } catch (e) {
+        console.error("[Settings] Failed to load user data:", e);
+      }
     };
-    loadSide();
+    loadUserData();
   }, []);
 
-  const loadBlockedUsers = async () => {
+  // ─── Write a single notification pref back to Firestore ─────
+  const updateNotifPref = async (
+    key: "showdowns" | "messages" | "challenges",
+    value: boolean
+  ) => {
     if (!auth.currentUser) return;
     try {
-      const userDoc = await getDocs(
-        query(collection(db, "users"), where("__name__", "==", auth.currentUser.uid))
+      await setDoc(
+        doc(db, "users", auth.currentUser.uid),
+        { notificationPrefs: { [key]: value } },
+        { merge: true }
       );
-      // For now, just show count from the blockedUsers array
     } catch (e) {
-      console.error(e);
+      console.error(`[Settings] Failed to update ${key}:`, e);
     }
   };
 
+  const toggleShowdowns = (v: boolean) => {
+    setNotifShowdowns(v);
+    updateNotifPref("showdowns", v);
+  };
+  const toggleMessages = (v: boolean) => {
+    setNotifMessages(v);
+    updateNotifPref("messages", v);
+  };
+  const toggleChallenges = (v: boolean) => {
+    setNotifChallenges(v);
+    updateNotifPref("challenges", v);
+  };
+
+  // ─── Logout — clear push token first ───────────────────────
   const handleLogout = () => {
     Alert.alert("Log Out", "Are you sure you want to log out?", [
       { text: "Cancel", style: "cancel" },
@@ -62,62 +85,16 @@ export default function SettingsScreen() {
         text: "Log Out",
         style: "destructive",
         onPress: async () => {
+          try {
+            await removePushToken();
+          } catch (e) {
+            console.error("[Settings] Failed to remove push token:", e);
+          }
           await signOut(auth);
           router.replace("/");
         },
       },
     ]);
-  };
-
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      "Delete Account",
-      "This will permanently delete your account, all showdowns, messages, and data. This cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => confirmDelete(),
-        },
-      ]
-    );
-  };
-
-  const confirmDelete = () => {
-    Alert.alert(
-      "Are you absolutely sure?",
-      "Type DELETE in the next prompt to confirm.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Yes, Delete Everything",
-          style: "destructive",
-          onPress: async () => {
-            setDeleting(true);
-            try {
-              if (!auth.currentUser) return;
-              // Delete user doc
-              await deleteDoc(doc(db, "users", auth.currentUser.uid));
-              // Delete Firebase Auth account
-              await deleteUser(auth.currentUser);
-              router.replace("/");
-            } catch (error: any) {
-              if (error.code === "auth/requires-recent-login") {
-                Alert.alert(
-                  "Re-authentication Required",
-                  "Please log out, log back in, and try again."
-                );
-              } else {
-                Alert.alert("Error", "Failed to delete account. Please try again.");
-              }
-            } finally {
-              setDeleting(false);
-            }
-          },
-        },
-      ]
-    );
   };
 
   return (
@@ -144,7 +121,7 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={notifShowdowns}
-              onValueChange={setNotifShowdowns}
+              onValueChange={toggleShowdowns}
               trackColor={{ false: "#334155", true: accentBg(userSide, 0.3) }}
               thumbColor={notifShowdowns ? accentColor(userSide) : "#94A3B8"}
             />
@@ -157,7 +134,7 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={notifMessages}
-              onValueChange={setNotifMessages}
+              onValueChange={toggleMessages}
               trackColor={{ false: "#334155", true: accentBg(userSide, 0.3) }}
               thumbColor={notifMessages ? accentColor(userSide) : "#94A3B8"}
             />
@@ -170,7 +147,7 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={notifChallenges}
-              onValueChange={setNotifChallenges}
+              onValueChange={toggleChallenges}
               trackColor={{ false: "#334155", true: accentBg(userSide, 0.3) }}
               thumbColor={notifChallenges ? accentColor(userSide) : "#94A3B8"}
             />
@@ -195,7 +172,10 @@ export default function SettingsScreen() {
         {/* Legal */}
         <Text style={styles.sectionLabel}>Legal</Text>
         <View style={styles.card}>
-          <Pressable style={styles.settingRow}>
+          <Pressable
+            style={styles.settingRow}
+            onPress={() => router.push("/legal/terms" as any)}
+          >
             <View style={styles.settingLeft}>
               <FontAwesome name="file-text-o" size={16} color="rgba(255,255,255,0.5)" />
               <Text style={styles.settingText}>Terms of Service</Text>
@@ -203,7 +183,10 @@ export default function SettingsScreen() {
             <FontAwesome name="chevron-right" size={14} color="rgba(255,255,255,0.2)" />
           </Pressable>
           <View style={styles.divider} />
-          <Pressable style={styles.settingRow}>
+          <Pressable
+            style={styles.settingRow}
+            onPress={() => router.push("/legal/privacy" as any)}
+          >
             <View style={styles.settingLeft}>
               <FontAwesome name="shield" size={16} color="rgba(255,255,255,0.5)" />
               <Text style={styles.settingText}>Privacy Policy</Text>
@@ -215,7 +198,14 @@ export default function SettingsScreen() {
         {/* Support */}
         <Text style={styles.sectionLabel}>Support</Text>
         <View style={styles.card}>
-          <Pressable style={styles.settingRow}>
+          <Pressable
+            style={styles.settingRow}
+            onPress={() =>
+              Linking.openURL(
+                `mailto:${SUPPORT_EMAIL}?subject=CrossTown%20Support`
+              )
+            }
+          >
             <View style={styles.settingLeft}>
               <FontAwesome name="envelope-o" size={16} color="rgba(255,255,255,0.5)" />
               <Text style={styles.settingText}>Contact Us</Text>
@@ -233,13 +223,17 @@ export default function SettingsScreen() {
             </View>
           </Pressable>
           <View style={styles.divider} />
-          <Pressable style={styles.settingRow} onPress={handleDeleteAccount}>
+          <Pressable
+            style={styles.settingRow}
+            onPress={() => router.push("/profile/deleteAccount" as any)}
+          >
             <View style={styles.settingLeft}>
               <FontAwesome name="trash" size={16} color="#EF4444" />
               <Text style={[styles.settingText, { color: "#EF4444" }]}>
-                {deleting ? "Deleting..." : "Delete Account"}
+                Delete Account
               </Text>
             </View>
+            <FontAwesome name="chevron-right" size={14} color="rgba(255,255,255,0.2)" />
           </Pressable>
         </View>
 
