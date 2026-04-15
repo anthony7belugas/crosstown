@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db, storage } from "../../firebaseConfig";
 import { accentColor, accentBg } from "../../utils/colors";
+import { checkContentFilter } from "../../utils/contentFilter";
 
 
 const MAJORS = [
@@ -134,6 +135,7 @@ export default function EditProfileScreen() {
       Alert.alert("Photo Required", "Please add at least one photo.");
       return;
     }
+    if (!checkContentFilter(bio.trim())) return;
 
     setSaving(true);
     try {

@@ -4,8 +4,10 @@
 import { Alert } from "react-native";
 
 const BANNED_WORDS = [
-  'nigger', 'niggers', 'n1gger', 'n1ggers',
+  'nigger', 'niggers', 'n1gger', 'n1ggers', 'nigga',
   'faggot', 'faggots', 'f4ggot',
+  'retard', 'kike', 'spic', 'chink', 'wetback',
+  'kill yourself', 'kys', 'go die',
 ];
 
 export function passesContentFilter(text: string): boolean {
