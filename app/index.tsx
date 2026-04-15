@@ -2,7 +2,7 @@
 // Welcome screen — arena entry (dark theme, consistent with app)
 import { FontAwesome } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   AccessibilityInfo,
   Animated,
@@ -24,7 +24,8 @@ import {
 export default function WelcomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [reduceMotion, setReduceMotion] = useState(false);
+  const reduceMotion = useRef(false);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
   /* ── entrance animations ── */
   const heroOp = useRef(new Animated.Value(0)).current;
@@ -39,36 +40,60 @@ export default function WelcomeScreen() {
   const loginOp = useRef(new Animated.Value(0)).current;
 
   /* ── looping pulses ── */
-  const vsGlowOp = useRef(new Animated.Value(1)).current; // opacity pulse on VS only
-  const bracketGlow = useRef(new Animated.Value(1)).current; // opacity pulse after entrance
+  const vsGlowOp = useRef(new Animated.Value(1)).current;
+  const bracketGlow = useRef(new Animated.Value(1)).current;
 
   /* ── button press ── */
   const btnPress = useRef(new Animated.Value(1)).current;
 
+  /* ── jump everything to final state (for reduced motion) ── */
+  const jumpToFinal = () => {
+    heroOp.setValue(1);
+    heroScale.setValue(1);
+    dividerOp.setValue(1);
+    dividerScaleX.setValue(1);
+    faceoffOp.setValue(1);
+    faceoffY.setValue(0);
+    bracketOp.setValue(1);
+    btnOp.setValue(1);
+    btnY.setValue(0);
+    loginOp.setValue(1);
+    vsGlowOp.setValue(1);
+    bracketGlow.setValue(1);
+  };
+
   useEffect(() => {
-    /* ── check reduced motion ── */
+    /* ── reduced motion: check + live listener ── */
     AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      setReduceMotion(enabled);
+      reduceMotion.current = enabled;
       if (enabled) {
-        // skip all animations, jump to final values
-        heroOp.setValue(1);
-        heroScale.setValue(1);
-        dividerOp.setValue(1);
-        dividerScaleX.setValue(1);
-        faceoffOp.setValue(1);
-        faceoffY.setValue(0);
-        bracketOp.setValue(1);
-        btnOp.setValue(1);
-        btnY.setValue(0);
-        loginOp.setValue(1);
+        jumpToFinal();
         return;
       }
-      startAnimations();
+      cleanupRef.current = startAnimations();
     });
+
+    const sub = AccessibilityInfo.addEventListener(
+      "reduceMotionChanged",
+      (enabled) => {
+        reduceMotion.current = enabled;
+        if (enabled) {
+          if (cleanupRef.current) cleanupRef.current();
+          cleanupRef.current = null;
+          jumpToFinal();
+        }
+      }
+    );
+
+    return () => {
+      sub.remove();
+      if (cleanupRef.current) cleanupRef.current();
+    };
   }, []);
 
-  const startAnimations = () => {
-    const loop = (v: Animated.Value, lo: number, hi: number, ms: number) =>
+  /* ── animation orchestration ── */
+  const startAnimations = (): (() => void) => {
+    const mkLoop = (v: Animated.Value, lo: number, hi: number, ms: number) =>
       Animated.loop(
         Animated.sequence([
           Animated.timing(v, {
@@ -86,9 +111,14 @@ export default function WelcomeScreen() {
         ])
       );
 
-    /* ── entrance sequence ── */
+    // pre-build loops (not started yet)
+    const vsLoop = mkLoop(vsGlowOp, 0.78, 1, 2400);
+    const brackLoop = mkLoop(bracketGlow, 0.45, 1, 3200);
+
+    // entrance sequence — loops start in .start() callback
+    // so they're guaranteed to fire only after entrance completes
     Animated.stagger(100, [
-      // hero
+      // 1. hero
       Animated.parallel([
         Animated.timing(heroOp, {
           toValue: 1,
@@ -102,7 +132,7 @@ export default function WelcomeScreen() {
           useNativeDriver: true,
         }),
       ]),
-      // divider expands from center
+      // 2. divider expands from center
       Animated.parallel([
         Animated.timing(dividerOp, {
           toValue: 1,
@@ -116,7 +146,7 @@ export default function WelcomeScreen() {
           useNativeDriver: true,
         }),
       ]),
-      // face-off row — no scale pulse here anymore
+      // 3. face-off row
       Animated.parallel([
         Animated.timing(faceoffOp, {
           toValue: 1,
@@ -130,13 +160,13 @@ export default function WelcomeScreen() {
           useNativeDriver: true,
         }),
       ]),
-      // brackets entrance FIRST, then pulse starts after
+      // 4. brackets
       Animated.timing(bracketOp, {
         toValue: 1,
         duration: 500,
         useNativeDriver: true,
       }),
-      // button
+      // 5. button
       Animated.parallel([
         Animated.timing(btnOp, {
           toValue: 1,
@@ -150,53 +180,63 @@ export default function WelcomeScreen() {
           useNativeDriver: true,
         }),
       ]),
-      // login
+      // 6. login
       Animated.timing(loginOp, {
         toValue: 1,
         duration: 350,
         useNativeDriver: true,
       }),
-    ]).start();
-
-    /* ── looping pulses — stored for cleanup ── */
-    const vsLoop = loop(vsGlowOp, 0.6, 1, 2400);
-    const brackLoop = loop(bracketGlow, 0.4, 1, 3200);
-
-    // start after entrance settles
-    const t1 = setTimeout(() => vsLoop.start(), 1200);
-    const t2 = setTimeout(() => brackLoop.start(), 1800);
+    ]).start(() => {
+      // entrance done — safe to start loops with no timing conflict
+      vsLoop.start();
+      brackLoop.start();
+    });
 
     return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
       vsLoop.stop();
       brackLoop.stop();
     };
   };
 
+  /* ── button press (respects reduced motion) ── */
+  const onPressIn = () => {
+    if (reduceMotion.current) return;
+    Animated.spring(btnPress, {
+      toValue: 0.96,
+      tension: 300,
+      friction: 10,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const onPressOut = () => {
+    if (reduceMotion.current) return;
+    Animated.spring(btnPress, {
+      toValue: 1,
+      tension: 300,
+      friction: 10,
+      useNativeDriver: true,
+    }).start();
+  };
+
   return (
     <View style={st.container}>
-      {/* ═══ BACKGROUND — static, never animated ═══ */}
+      {/* ═══ BACKGROUND — all static, never animated ═══ */}
 
-      {/* Color split — school colors, more visible now */}
       <View style={st.splitBg}>
         <View style={[st.splitHalf, { backgroundColor: USC_RED }]} />
         <View style={[st.splitHalf, { backgroundColor: UCLA_BLUE }]} />
       </View>
 
-      {/* Dark overlay to mute (lighter than before) */}
       <View style={st.overlay} />
 
-      {/* Diagonal line */}
       <View style={st.diagWrap}>
         <View style={st.diagLine} />
       </View>
 
-      {/* Edge accent bars */}
       <View style={[st.edgeBar, st.edgeL]} />
       <View style={[st.edgeBar, st.edgeR]} />
 
-      {/* Corner brackets — entrance opacity * pulse glow (sequenced) */}
       <Animated.View
         style={[
           st.brk,
@@ -237,8 +277,8 @@ export default function WelcomeScreen() {
         ]}
       >
         <View style={st.center}>
-          {/* Hero — CrossTown */}
           <Animated.Text
+            allowFontScaling={false}
             style={[
               st.hero,
               {
@@ -250,7 +290,6 @@ export default function WelcomeScreen() {
             CrossTown
           </Animated.Text>
 
-          {/* Accent divider: red line ◆ blue line */}
           <Animated.View
             style={[
               st.divider,
@@ -265,8 +304,6 @@ export default function WelcomeScreen() {
             <View style={[st.divLine, { backgroundColor: UCLA_BLUE }]} />
           </Animated.View>
 
-          {/* Face-off — USC  VS  UCLA */}
-          {/* No scale pulse on the row — only VS text gets an opacity glow */}
           <Animated.View
             style={[
               st.faceoff,
@@ -276,15 +313,27 @@ export default function WelcomeScreen() {
               },
             ]}
           >
-            <Text style={[st.schoolName, { color: USC_RED }]}>USC</Text>
-            <Animated.Text style={[st.vsText, { opacity: vsGlowOp }]}>
+            <Text
+              allowFontScaling={false}
+              style={[st.schoolName, { color: USC_RED }]}
+            >
+              USC
+            </Text>
+            <Animated.Text
+              allowFontScaling={false}
+              style={[st.vsText, { opacity: vsGlowOp }]}
+            >
               VS
             </Animated.Text>
-            <Text style={[st.schoolName, { color: UCLA_BLUE }]}>UCLA</Text>
+            <Text
+              allowFontScaling={false}
+              style={[st.schoolName, { color: UCLA_BLUE }]}
+            >
+              UCLA
+            </Text>
           </Animated.View>
         </View>
 
-        {/* ── Bottom ── */}
         <View style={st.bottom}>
           <Animated.View
             style={{
@@ -295,25 +344,13 @@ export default function WelcomeScreen() {
           >
             <Pressable
               onPress={() => router.push("/onboarding/pickSide")}
-              onPressIn={() =>
-                Animated.spring(btnPress, {
-                  toValue: 0.96,
-                  tension: 300,
-                  friction: 10,
-                  useNativeDriver: true,
-                }).start()
-              }
-              onPressOut={() =>
-                Animated.spring(btnPress, {
-                  toValue: 1,
-                  tension: 300,
-                  friction: 10,
-                  useNativeDriver: true,
-                }).start()
-              }
+              onPressIn={onPressIn}
+              onPressOut={onPressOut}
               style={st.btn}
             >
-              <Text style={st.btnText}>Enter the Rivalry</Text>
+              <Text allowFontScaling={false} style={st.btnText}>
+                Enter the Rivalry
+              </Text>
               <FontAwesome name="arrow-right" size={17} color="#FFFFFF" />
             </Pressable>
           </Animated.View>
@@ -341,34 +378,31 @@ const st = StyleSheet.create({
     backgroundColor: BG_PRIMARY,
   },
 
-  /* ── Background split ── */
   splitBg: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: "row",
   },
   splitHalf: {
     flex: 1,
-    opacity: 0.40, // was 0.25 — bumped so each side reads as its color
+    opacity: 0.4,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(15, 23, 42, 0.45)", // was 0.55 — lighter to let color through
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
   },
 
-  /* ── Diagonal line ── */
   diagWrap: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
   },
   diagLine: {
-    width: 1.5,
+    width: 2,
     height: "130%",
-    backgroundColor: "rgba(226, 232, 240, 0.10)",
-    transform: [{ rotate: "20deg" }], // was 12deg — steeper so it reads as intentional
+    backgroundColor: "rgba(226, 232, 240, 0.14)",
+    transform: [{ rotate: "20deg" }],
   },
 
-  /* ── Edge bars ── */
   edgeBar: {
     position: "absolute",
     top: 0,
@@ -378,15 +412,14 @@ const st = StyleSheet.create({
   edgeL: {
     left: 0,
     backgroundColor: USC_RED,
-    opacity: 0.35,
+    opacity: 0.45,
   },
   edgeR: {
     right: 0,
     backgroundColor: UCLA_BLUE,
-    opacity: 0.35,
+    opacity: 0.45,
   },
 
-  /* ── Corner brackets ── */
   brk: {
     position: "absolute",
     width: 26,
@@ -421,7 +454,6 @@ const st = StyleSheet.create({
     borderColor: UCLA_BLUE,
   },
 
-  /* ── Content ── */
   content: {
     flex: 1,
     justifyContent: "space-between",
@@ -435,13 +467,12 @@ const st = StyleSheet.create({
     alignItems: "center",
   },
 
-  /* ── Hero text ── */
   hero: {
     fontSize: 48,
     fontWeight: "900",
     color: "#FFFFFF",
     letterSpacing: -0.5,
-    marginBottom: 18,
+    marginBottom: 16,
     ...Platform.select({
       ios: {
         shadowColor: NEUTRAL_ACCENT,
@@ -452,17 +483,16 @@ const st = StyleSheet.create({
     }),
   },
 
-  /* ── Accent divider ── */
   divider: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginBottom: 22,
+    marginBottom: 16,
   },
   divLine: {
-    width: 52, // was 36 — wider so they register
+    width: 52,
     height: 1.5,
-    opacity: 0.7, // was 0.5
+    opacity: 0.7,
   },
   divDot: {
     width: 5,
@@ -472,25 +502,23 @@ const st = StyleSheet.create({
     transform: [{ rotate: "45deg" }],
   },
 
-  /* ── Face-off row ── */
   faceoff: {
     flexDirection: "row",
     alignItems: "center",
     gap: 16,
   },
   schoolName: {
-    fontSize: 24, // was 20 — scaled up to match bigger VS
+    fontSize: 24,
     fontWeight: "800",
     letterSpacing: 3,
   },
   vsText: {
-    fontSize: 44, // was 15 — the VS IS the screen, make it loud
-    fontWeight: "900", // was 700
-    color: "#FFFFFF", // was NEUTRAL_ACCENT with 0.4 opacity — now full white
+    fontSize: 44,
+    fontWeight: "900",
+    color: "#FFFFFF",
     letterSpacing: 6,
   },
 
-  /* ── Bottom ── */
   bottom: {
     width: "100%",
     alignItems: "center",
@@ -500,18 +528,17 @@ const st = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "transparent", // was NEUTRAL_ACCENT — now ghost button
+    backgroundColor: "transparent",
     borderWidth: 1.5,
-    borderColor: "rgba(226, 232, 240, 0.3)", // subtle white border
+    borderColor: "rgba(226, 232, 240, 0.38)",
     borderRadius: 16,
     paddingVertical: 18,
     gap: 10,
-    // no shadow on ghost button
   },
   btnText: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#FFFFFF", // was dark — now white for ghost button
+    color: "#FFFFFF",
     letterSpacing: 0.3,
   },
   loginWrap: {
