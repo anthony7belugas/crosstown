@@ -305,7 +305,7 @@ export default function RootLayout() {
           const side = email.endsWith("@usc.edu") ? "usc" : "ucla";
           setHasNavigated(true);
           router.replace({
-            pathname: "/onboarding/nameAndDob" as any,
+            pathname: "/onboarding/name" as any,
             params: { side },
           });
         }
