@@ -2,6 +2,7 @@
 // Root layout with auth state routing, OTA update check,
 // push notification handling, and branded loading screen
 import { Stack, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import * as Notifications from "expo-notifications";
@@ -349,6 +350,7 @@ export default function RootLayout() {
 
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
+        <StatusBar style="light" />
         <View style={loadingStyles.container}>
           {/* Red/blue split background — matches welcome screen */}
           <View style={loadingStyles.splitBackground}>
@@ -406,6 +408,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <StatusBar style="light" />
       <Stack
         screenOptions={{
           headerShown: false,

@@ -185,7 +185,7 @@ export default function PickSideScreen() {
 
   return (
     <View style={st.container}>
-      {/* ── Header with progress bar ── */}
+      {/* ── Header — back button only (no progress bar pre-signup) ── */}
       <Animated.View
         style={[
           st.header,
@@ -199,14 +199,6 @@ export default function PickSideScreen() {
             color="rgba(255,255,255,0.6)"
           />
         </Pressable>
-        <View style={st.progressBar}>
-          <View
-            style={[
-              st.progressFill,
-              { width: "14%", backgroundColor: accent },
-            ]}
-          />
-        </View>
       </Animated.View>
 
       {/* ── Content ── */}

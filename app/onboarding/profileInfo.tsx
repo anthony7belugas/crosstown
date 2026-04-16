@@ -29,15 +29,18 @@ export default function ProfileInfoScreen() {
   const [bio, setBio] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ── FIX #3: Resolve side from param, then Firestore fallback ──
+  // ── Restore cached data + resolve side fallback on mount ──
   const [side, setSide] = useState(paramSide || "usc");
   useEffect(() => {
-    if (!paramSide && auth.currentUser) {
-      getDoc(doc(db, "users", auth.currentUser.uid)).then((snap) => {
-        const s = snap.data()?.side;
-        if (s) setSide(s);
-      }).catch(() => {});
-    }
+    if (!auth.currentUser) return;
+    getDoc(doc(db, "users", auth.currentUser.uid)).then((snap) => {
+      const data = snap.data();
+      if (!data) return;
+      if (!paramSide && data.side) setSide(data.side);
+      if (data.major && !major) setMajor(data.major);
+      if (data.gradYear && !gradYear) setGradYear(data.gradYear);
+      if (data.bio && !bio) setBio(data.bio);
+    }).catch(() => {});
   }, []);
 
   const isValid = major !== null && gradYear !== null;
@@ -79,7 +82,7 @@ export default function ProfileInfoScreen() {
           <Pressable style={styles.backButton} onPress={() => router.back()}>
             <FontAwesome name="arrow-left" size={20} color="rgba(255,255,255,0.6)" />
           </Pressable>
-          <View style={styles.progressBar}><View style={[styles.progressFill, { width: "85%" }]} /></View>
+          <View style={styles.progressBar}><View style={[styles.progressFill, { width: "100%" }]} /></View>
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>

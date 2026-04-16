@@ -29,15 +29,16 @@ export default function NameScreen() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ── FIX #3: Resolve side from param, then Firestore fallback ──
+  // ── Restore cached data + resolve side fallback on mount ──
   const [side, setSide] = useState(paramSide || "usc");
   useEffect(() => {
-    if (!paramSide && auth.currentUser) {
-      getDoc(doc(db, "users", auth.currentUser.uid)).then((snap) => {
-        const s = snap.data()?.side;
-        if (s) setSide(s);
-      }).catch(() => {});
-    }
+    if (!auth.currentUser) return;
+    getDoc(doc(db, "users", auth.currentUser.uid)).then((snap) => {
+      const data = snap.data();
+      if (!data) return;
+      if (!paramSide && data.side) setSide(data.side);
+      if (data.name && !name) setName(data.name);
+    }).catch(() => {});
   }, []);
 
   const styles = createStyles(side);
@@ -85,7 +86,7 @@ export default function NameScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
           <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: "42%" }]} />
+            <View style={[styles.progressFill, { width: "33%" }]} />
           </View>
         </View>
         <ScrollView

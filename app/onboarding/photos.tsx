@@ -37,16 +37,17 @@ export default function PhotosScreen() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
 
-  // ── FIX #3: Resolve side from param, then Firestore fallback ──
+  // ── Restore cached data + resolve side fallback on mount ──
   const paramSide = params.side as string | undefined;
   const [side, setSide] = useState(paramSide || "usc");
   useEffect(() => {
-    if (!paramSide && auth.currentUser) {
-      getDoc(doc(db, "users", auth.currentUser.uid)).then((snap) => {
-        const s = snap.data()?.side;
-        if (s) setSide(s);
-      }).catch(() => {});
-    }
+    if (!auth.currentUser) return;
+    getDoc(doc(db, "users", auth.currentUser.uid)).then((snap) => {
+      const data = snap.data();
+      if (!data) return;
+      if (!paramSide && data.side) setSide(data.side);
+      if (data.photos?.length && photos.length === 0) setPhotos(data.photos);
+    }).catch(() => {});
   }, []);
 
   const accent = accentColor(side);
@@ -124,13 +125,32 @@ export default function PhotosScreen() {
 
     setUploading(true);
     try {
-      // Upload to Storage and get URLs
-      const photoUrls = await uploadPhotos(photos);
+      // Separate already-uploaded URLs from new local picks
+      const finalUrls: string[] = [];
+      const toUpload: string[] = [];
+      const uploadIndexMap: number[] = []; // tracks position in finalUrls
+
+      photos.forEach((uri, i) => {
+        if (uri.startsWith("https://")) {
+          finalUrls[i] = uri; // already in Storage
+        } else {
+          toUpload.push(uri);
+          uploadIndexMap.push(i);
+        }
+      });
+
+      // Only upload new local photos
+      if (toUpload.length > 0) {
+        const newUrls = await uploadPhotos(toUpload);
+        newUrls.forEach((url, j) => {
+          finalUrls[uploadIndexMap[j]] = url;
+        });
+      }
 
       // Progressive save — merge:true so we don't overwrite name/side
       await setDoc(
         doc(db, "users", auth.currentUser.uid),
-        { photos: photoUrls },
+        { photos: finalUrls },
         { merge: true }
       );
 
@@ -222,7 +242,7 @@ export default function PhotosScreen() {
           <FontAwesome name="arrow-left" size={20} color="rgba(255,255,255,0.6)" />
         </Pressable>
         <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: "71%", backgroundColor: accent }]} />
+          <View style={[styles.progressFill, { width: "66%", backgroundColor: accent }]} />
         </View>
       </View>
 

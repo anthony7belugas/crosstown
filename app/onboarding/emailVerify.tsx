@@ -78,7 +78,6 @@ export default function EmailVerifyScreen() {
           <Pressable style={styles.backButton} onPress={() => router.back()}>
             <FontAwesome name="arrow-left" size={20} color="rgba(255,255,255,0.6)" />
           </Pressable>
-          <View style={styles.progressBar}><View style={[styles.progressFill, { width: "28%" }]} /></View>
         </View>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.titleSection}>
