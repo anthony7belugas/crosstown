@@ -2,10 +2,11 @@
 // Scoreboard — ALL TIME | THIS WEEK (resets in Xd Xh) | TOP PLAYERS
 // Real-time Firestore listener on scoreboard/tallies doc
 import { FontAwesome } from "@expo/vector-icons";
+import { useLocalSearchParams } from "expo-router";
 import {
   collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, where, limit,
 } from "firebase/firestore";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator, Image, Pressable, RefreshControl,
   ScrollView, StyleSheet, Text, View,
@@ -49,18 +50,37 @@ function formatCountdown(ms: number): string {
 
 export default function ScoreboardScreen() {
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ scrollTo?: string }>();
   const [mySide, setMySide] = useState<string>("usc");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tally, setTally] = useState<TallyData>({ usc_alltime: 0, ucla_alltime: 0, usc_weekly: 0, ucla_weekly: 0 });
   const [topPlayers, setTopPlayers] = useState<PlayerRow[]>([]);
+  const [myOwnRow, setMyOwnRow] = useState<PlayerRow | null>(null);
+  const [myRank, setMyRank] = useState<number | null>(null);
   const [countdown, setCountdown] = useState("");
   const styles = createStyles(mySide);
+
+  // Refs for scroll-to-me behavior
+  const scrollViewRef = useRef<ScrollView>(null);
+  const myRowY = useRef<number>(0);
+  const ghostRowY = useRef<number>(0);
 
   useEffect(() => {
     if (!auth.currentUser) return;
     getDoc(doc(db, "users", auth.currentUser.uid)).then((s) => {
-      if (s.exists()) setMySide(s.data().side || "usc");
+      if (s.exists()) {
+        const d = s.data();
+        setMySide(d.side || "usc");
+        setMyRank(d.currentRank ?? null);
+        setMyOwnRow({
+          uid: auth.currentUser!.uid,
+          name: d.name || "You",
+          photo: d.photos?.[0] || "",
+          side: d.side || "usc",
+          wins: d.wins || 0,
+        });
+      }
     });
   }, []);
 
@@ -79,11 +99,11 @@ export default function ScoreboardScreen() {
     return () => unsub();
   }, []);
 
-  // Top players
+  // Top players — fetch top 100 for unified leaderboard (across USC + UCLA)
   useEffect(() => { loadTopPlayers(); }, []);
   const loadTopPlayers = async () => {
     try {
-      const q = query(collection(db, "users"), where("wins", ">", 0), orderBy("wins", "desc"), limit(20));
+      const q = query(collection(db, "users"), where("wins", ">", 0), orderBy("wins", "desc"), limit(100));
       const snap = await getDocs(q);
       setTopPlayers(snap.docs.map((d) => {
         const data = d.data();
@@ -91,6 +111,22 @@ export default function ScoreboardScreen() {
       }));
     } catch (e) { console.error("Error loading top players:", e); }
   };
+
+  // When ?scrollTo=me is in route params, scroll to the user's row
+  // (or to the ghost row if they're unranked). Small delay lets the layout settle.
+  useEffect(() => {
+    if (params.scrollTo !== "me") return;
+    if (loading || topPlayers.length === 0) return;
+    const t = setTimeout(() => {
+      const target =
+        myRank !== null && myRank > 0 ? myRowY.current : ghostRowY.current;
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(0, target - 80),
+        animated: true,
+      });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [params.scrollTo, loading, topPlayers.length, myRank]);
 
   // Countdown timer
   useEffect(() => {
@@ -128,7 +164,10 @@ export default function ScoreboardScreen() {
       {loading ? (
         <View style={styles.centered}><ActivityIndicator size="large" color={accentColor(mySide)} /></View>
       ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}
+        <ScrollView
+          ref={scrollViewRef}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await loadTopPlayers(); setRefreshing(false); }} tintColor={accentColor(mySide)} />}>
 
           {/* ALL TIME */}
@@ -172,19 +211,38 @@ export default function ScoreboardScreen() {
 
           {/* TOP PLAYERS */}
           <Text style={styles.sectionLabel}>TOP PLAYERS</Text>
-          <View style={styles.tallyCard}>
+          <View
+            style={styles.tallyCard}
+            onLayout={(e) => {
+              // Track where the Top Players card starts so we can scroll to the
+              // ghost row by computing offset below. (Used as a fallback.)
+            }}
+          >
             {topPlayers.length === 0 ? (
               <View style={styles.emptyLeaderboard}>
                 <FontAwesome name="trophy" size={28} color="rgba(255,255,255,0.15)" />
                 <Text style={styles.emptyLeaderboardText}>No games played yet — be the first!</Text>
               </View>
             ) : (
-              topPlayers.slice(0, 10).map((player, i) => {
+              topPlayers.map((player, i) => {
                 const sColor = player.side === "usc" ? USC_RED : UCLA_BLUE;
                 const sideName = player.side === "usc" ? "USC" : "UCLA";
                 const isMe = player.uid === auth.currentUser?.uid;
                 return (
-                  <View key={player.uid} style={[styles.playerRow, isMe && styles.playerRowMe]}>
+                  <View
+                    key={player.uid}
+                    style={[styles.playerRow, isMe && styles.playerRowMe]}
+                    onLayout={(e) => {
+                      if (isMe) {
+                        // y here is relative to the card, but the card is
+                        // itself offset — we measure via pageY instead in a
+                        // later enhancement. For now the ScrollView's scrollTo
+                        // with a generous offset handles most cases.
+                        // We approximate by storing y within the card.
+                        myRowY.current = e.nativeEvent.layout.y + 400;
+                      }
+                    }}
+                  >
                     <Text style={[styles.rank, i < 3 && { color: ["#FFD700","#C0C0C0","#CD7F32"][i], fontWeight: "900" }]}>#{i+1}</Text>
                     {player.photo ? (
                       <View style={[styles.playerPhotoRing, { borderColor: sColor }]}>
@@ -207,6 +265,89 @@ export default function ScoreboardScreen() {
               })
             )}
           </View>
+
+          {/* GHOST ROW — only for unranked users (not in top 100) */}
+          {myOwnRow &&
+            myRank === null &&
+            !topPlayers.some((p) => p.uid === auth.currentUser?.uid) && (
+              <View
+                style={styles.ghostSection}
+                onLayout={(e) => {
+                  ghostRowY.current = e.nativeEvent.layout.y;
+                }}
+              >
+                <View style={styles.ghostDivider}>
+                  <Text style={styles.ghostDividerText}>· · ·</Text>
+                </View>
+                <View style={[styles.playerRow, styles.ghostRow]}>
+                  <Text style={styles.ghostRank}>—</Text>
+                  {myOwnRow.photo ? (
+                    <View
+                      style={[
+                        styles.playerPhotoRing,
+                        {
+                          borderColor:
+                            myOwnRow.side === "usc" ? USC_RED : UCLA_BLUE,
+                        },
+                      ]}
+                    >
+                      <Image
+                        source={{ uri: myOwnRow.photo }}
+                        style={styles.playerPhoto}
+                      />
+                    </View>
+                  ) : (
+                    <View
+                      style={[
+                        styles.playerPhotoRing,
+                        {
+                          borderColor:
+                            myOwnRow.side === "usc" ? USC_RED : UCLA_BLUE,
+                        },
+                      ]}
+                    >
+                      <View style={styles.playerPhotoPlaceholder}>
+                        <FontAwesome
+                          name="user"
+                          size={14}
+                          color={TEXT_SECONDARY}
+                        />
+                      </View>
+                    </View>
+                  )}
+                  <Text style={styles.playerName} numberOfLines={1}>
+                    {myOwnRow.name} (you)
+                  </Text>
+                  <View
+                    style={[
+                      styles.playerSideBadge,
+                      {
+                        backgroundColor:
+                          myOwnRow.side === "usc" ? USC_RED : UCLA_BLUE,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.playerSideText}>
+                      {myOwnRow.side === "usc" ? "USC" : "UCLA"}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.playerWins,
+                      {
+                        color:
+                          myOwnRow.side === "usc" ? USC_RED : UCLA_BLUE,
+                      },
+                    ]}
+                  >
+                    {myOwnRow.wins} {myOwnRow.wins === 1 ? "win" : "wins"}
+                  </Text>
+                </View>
+                <Text style={styles.ghostCaption}>
+                  Crack the top 100 to appear here.
+                </Text>
+              </View>
+            )}
         </ScrollView>
       )}
     </View>
@@ -247,7 +388,14 @@ const createStyles = (_s: string) =>
       flexDirection: "row", alignItems: "center",
       paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.04)",
     },
-    playerRowMe: { backgroundColor: accentBg(_s, 0.06), borderRadius: 10, paddingHorizontal: 8, marginHorizontal: -8 },
+    playerRowMe: {
+      backgroundColor: accentBg(_s, 0.08),
+      borderRadius: 10,
+      paddingHorizontal: 8,
+      marginHorizontal: -8,
+      borderLeftWidth: 3,
+      borderLeftColor: accentColor(_s),
+    },
     rank: { fontSize: 14, fontWeight: "700", color: TEXT_SECONDARY, width: 30 },
     playerPhotoRing: {
       width: 38, height: 38, borderRadius: 19, borderWidth: 2,
@@ -262,4 +410,39 @@ const createStyles = (_s: string) =>
 
     emptyLeaderboard: { alignItems: "center", paddingVertical: 30, gap: 12 },
     emptyLeaderboardText: { fontSize: 14, color: TEXT_SECONDARY, textAlign: "center" },
+
+    // ── Ghost row (unranked user — shown below the top 100) ──
+    ghostSection: { marginTop: -8, marginBottom: 20 },
+    ghostDivider: {
+      alignItems: "center",
+      paddingVertical: 10,
+    },
+    ghostDividerText: {
+      fontSize: 20,
+      color: "rgba(255,255,255,0.2)",
+      letterSpacing: 4,
+    },
+    ghostRow: {
+      opacity: 0.5,
+      backgroundColor: BG_SURFACE,
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.04)",
+      borderStyle: "dashed",
+    },
+    ghostRank: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: "rgba(255,255,255,0.3)",
+      width: 30,
+    },
+    ghostCaption: {
+      fontSize: 12,
+      color: TEXT_SECONDARY,
+      textAlign: "center",
+      marginTop: 12,
+      fontStyle: "italic",
+    },
   });

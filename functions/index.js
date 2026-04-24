@@ -41,6 +41,25 @@ function containsBannedWords(text) {
 }
 
 // ============================================
+// ISO WEEK KEY HELPER
+// Produces keys like "2026-W16" so that weekly counters self-reset.
+// ============================================
+
+function getISOWeekKey(date) {
+  // Copy date so we don't mutate
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  // Set to Thursday of current week (ISO weeks are Mon-Sun, week number
+  // determined by the Thursday of the week)
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  // Start of the year
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  // Calc week number
+  const weekNum = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+}
+
+// ============================================
 // PUSH NOTIFICATION HELPERS
 // ============================================
 
@@ -489,18 +508,48 @@ exports.onGameUpdated = onDocumentUpdated("games/{gameId}", async (event) => {
   // ── CASE 1: Game just completed ──
   if (before.status !== "complete" && after.status === "complete") {
     const winnerId = after.winner;
-    if (!winnerId || winnerId === "draw") return;
+
+    // Draws (and missing-winner edge cases): still increment gamesPlayed for both
+    // players so Win Rate denominators stay accurate. No wins, no tally change.
+    if (!winnerId || winnerId === "draw") {
+      const players = after.players || [];
+      for (const pid of players) {
+        try {
+          const pRef = db.collection("users").doc(pid);
+          await db.runTransaction(async (tx) => {
+            const snap = await tx.get(pRef);
+            const currentGamesPlayed = snap.exists ? (snap.data().gamesPlayed || 0) : 0;
+            tx.update(pRef, { gamesPlayed: currentGamesPlayed + 1 });
+          });
+        } catch (e) {
+          console.error(`onGameUpdated (draw gamesPlayed for ${pid}) error:`, e);
+        }
+      }
+      console.log(`Game ${event.params.gameId} ended in draw. gamesPlayed bumped for both.`);
+      return;
+    }
 
     const winnerSide = after.sides?.[winnerId];
     if (!winnerSide) return;
 
     try {
-      // 1. Increment winner's personal win count
+      // 1. Increment winner's personal win count + weekly win count + games played
       const winnerRef = db.collection("users").doc(winnerId);
+      const weekKey = getISOWeekKey(new Date());
       await db.runTransaction(async (tx) => {
         const snap = await tx.get(winnerRef);
-        const current = snap.exists ? (snap.data().wins || 0) : 0;
-        tx.update(winnerRef, { wins: current + 1 });
+        const data = snap.exists ? snap.data() : {};
+        const currentWins = data.wins || 0;
+        const currentGamesPlayed = data.gamesPlayed || 0;
+        // If the stored week key matches this week, increment; otherwise reset to 1.
+        const storedWeek = data.weeklyWinsWeek;
+        const currentWeeklyWins = storedWeek === weekKey ? (data.weeklyWins || 0) : 0;
+        tx.update(winnerRef, {
+          wins: currentWins + 1,
+          gamesPlayed: currentGamesPlayed + 1,
+          weeklyWins: currentWeeklyWins + 1,
+          weeklyWinsWeek: weekKey,
+        });
       });
 
       // 2. Increment school tally (all-time + weekly)
@@ -525,9 +574,21 @@ exports.onGameUpdated = onDocumentUpdated("games/{gameId}", async (event) => {
         }
       });
 
-      // 3. Push to loser
+      // 3. Push to loser + increment loser's games played
       const loserId = after.players?.find((p) => p !== winnerId);
       if (loserId) {
+        // Increment loser's gamesPlayed (so Win Rate denominator tracks correctly)
+        try {
+          const loserRef = db.collection("users").doc(loserId);
+          await db.runTransaction(async (tx) => {
+            const snap = await tx.get(loserRef);
+            const currentGamesPlayed = snap.exists ? (snap.data().gamesPlayed || 0) : 0;
+            tx.update(loserRef, { gamesPlayed: currentGamesPlayed + 1 });
+          });
+        } catch (e) {
+          console.error("onGameUpdated (loser gamesPlayed) error:", e);
+        }
+
         const loserToken = await getUserPushToken(loserId);
         const winnerSnap = await db.collection("users").doc(winnerId).get();
         const winnerName = winnerSnap.exists
@@ -651,8 +712,13 @@ exports.onScoreboardGapAlert = onDocumentUpdated("scoreboard/tallies", async (ev
       .where("expoPushToken", "!=", null).limit(500).get();
     const messages = [];
     for (const userDoc of usersSnap.docs) {
-      const token = userDoc.data().expoPushToken;
+      const data = userDoc.data();
+      const token = data.expoPushToken;
       if (!Expo.isExpoPushToken(token)) continue;
+      // Respect per-user preferences: master toggle + scoreboardAlerts
+      const prefs = data.notificationPrefs || {};
+      if (prefs.pushEnabled === false) continue;
+      if (prefs.scoreboardAlerts === false) continue;
       messages.push({
         to: token, sound: "default",
         title: `${closingSchool} is closing the gap 🔥`,
@@ -667,3 +733,52 @@ exports.onScoreboardGapAlert = onDocumentUpdated("scoreboard/tallies", async (ev
     console.log(`Gap alert: ${closingSchool} closing the gap`);
   }
 });
+
+// ============================================
+// RECOMPUTE RANKS — nightly at 3 AM Pacific
+// Unified top-100 leaderboard across USC + UCLA.
+// Stamps `currentRank` (1-indexed) on the top 100 user docs.
+// Clears `currentRank` on users who fell out.
+// ============================================
+
+exports.recomputeRanks = onSchedule(
+  { schedule: "0 3 * * *", timeZone: "America/Los_Angeles" },
+  async () => {
+    try {
+      // 1. Fetch the current top 100 by lifetime wins
+      const topSnap = await db.collection("users")
+        .orderBy("wins", "desc")
+        .limit(100)
+        .get();
+
+      // 2. Stamp currentRank (1-indexed) on each
+      const topIds = new Set();
+      const stampBatch = db.batch();
+      topSnap.docs.forEach((doc, idx) => {
+        topIds.add(doc.id);
+        stampBatch.update(doc.ref, { currentRank: idx + 1 });
+      });
+      await stampBatch.commit();
+
+      // 3. Clear currentRank on anyone who used to be ranked but isn't now
+      const previouslyRankedSnap = await db.collection("users")
+        .where("currentRank", ">=", 1)
+        .get();
+      const clearBatch = db.batch();
+      let clearedCount = 0;
+      previouslyRankedSnap.docs.forEach((doc) => {
+        if (!topIds.has(doc.id)) {
+          clearBatch.update(doc.ref, { currentRank: null });
+          clearedCount += 1;
+        }
+      });
+      if (clearedCount > 0) {
+        await clearBatch.commit();
+      }
+
+      console.log(`recomputeRanks: stamped ${topSnap.size}, cleared ${clearedCount}`);
+    } catch (err) {
+      console.error("recomputeRanks error:", err);
+    }
+  }
+);

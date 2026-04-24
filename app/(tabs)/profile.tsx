@@ -1,93 +1,105 @@
 // app/(tabs)/profile.tsx
-// Profile tab — user's profile as others see it, challenges counter, edit, settings
+// Profile tab — CrossTown player card.
+// Modes: PLAYED (wins > 0) | FRESH (wins === 0) | EARLY (0 < wins < 3, win rate locked)
+//
+// Structure:
+//   Header (Profile · gear)
+//   Player Card (circular photo + side ring, name, side pill, major, year,
+//                rank pill in top-right corner if ranked,
+//                Preview + Edit inline at bottom)
+//   Season Stats Row (Wins · Win Rate · Rank)  — OR — Fresh-user empty state card
+//   Contribution Line (PLAYED/EARLY only)
+//   Instagram Card
+//   Log Out
+//   Version footer
 import { FontAwesome } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { signOut } from "firebase/auth";
+import { doc, onSnapshot } from "firebase/firestore";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  collection, doc, getDocs, onSnapshot, query, where,
-} from "firebase/firestore";
-import React, { useEffect, useState } from "react";
-import {
-  ActivityIndicator, Alert, Image, Pressable, ScrollView,
+  ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView,
   StyleSheet, Text, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebaseConfig";
-import { accentColor, accentBg, schoolColor } from "../../utils/colors";
+import { accentBg, accentColor } from "../../utils/colors";
 import { removePushToken } from "../../utils/pushNotifications";
 
+const WIN_RATE_UNLOCK_AT = 3;
+const INSTAGRAM_URL = "https://instagram.com/crosstownapp";
+const INSTAGRAM_HANDLE = "@crosstownapp";
 
-interface UserData {
+interface ProfileData {
   name: string;
   side: "usc" | "ucla";
   photos: string[];
   major: string;
   gradYear: string;
-  bio: string;
-  email: string;
+  wins: number;
+  gamesPlayed: number; // total showdowns (for win rate)
+  weeklyWins: number;
+  weeklyWinsWeek: string | null;
+  currentRank: number | null;
+}
+
+// Compute same ISO week key as the Cloud Function.
+// Used to decide if weeklyWins is for this week or stale.
+function getCurrentISOWeekKey(): string {
+  const now = new Date();
+  const d = new Date(
+    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+  );
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNum = Math.ceil(
+    (((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7
+  );
+  return `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, "0")}`;
 }
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [userData, setUserData] = useState<UserData | null>(null);
-  const [challengesCount, setChallengesCount] = useState(0);
-  const [showdownsCount, setShowdownsCount] = useState(0);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
-
-  const profileSide = userData?.side || "usc";
-  const styles = createStyles(profileSide);
 
   useEffect(() => {
     if (!auth.currentUser) return;
-    const uid = auth.currentUser.uid;
-
-    // Real-time user data listener
-    const unsub = onSnapshot(doc(db, "users", uid), (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        setUserData({
+    const unsub = onSnapshot(
+      doc(db, "users", auth.currentUser.uid),
+      (snap) => {
+        if (!snap.exists()) {
+          setLoading(false);
+          return;
+        }
+        const data = snap.data();
+        setProfile({
           name: data.name || "",
           side: data.side || "usc",
           photos: data.photos || [],
           major: data.major || "",
           gradYear: data.gradYear || "",
-          bio: data.bio || "",
-          email: data.email || auth.currentUser?.email || "",
+          wins: data.wins || 0,
+          gamesPlayed: data.gamesPlayed || 0,
+          weeklyWins: data.weeklyWins || 0,
+          weeklyWinsWeek: data.weeklyWinsWeek || null,
+          currentRank: data.currentRank ?? null,
         });
+        setLoading(false);
+      },
+      (err) => {
+        console.error("[Profile] listener error:", err);
+        setLoading(false);
       }
-      setLoading(false);
-    });
-
-    // Count challenges received
-    const loadChallenges = async () => {
-      try {
-        const challengesSnap = await getDocs(
-          query(collection(db, "challenges"), where("toUserId", "==", uid))
-        );
-        setChallengesCount(challengesSnap.size);
-      } catch (e) {
-        console.error("Error loading challenges:", e);
-      }
-    };
-
-    // Count showdowns
-    const loadShowdowns = async () => {
-      try {
-        const showdownsSnap = await getDocs(
-          query(collection(db, "showdowns"), where("users", "array-contains", uid))
-        );
-        setShowdownsCount(showdownsSnap.size);
-      } catch (e) {
-        console.error("Error loading showdowns:", e);
-      }
-    };
-
-    loadChallenges();
-    loadShowdowns();
+    );
     return () => unsub();
   }, []);
+
+  const userSide = profile?.side || "usc";
+  const styles = useMemo(() => createStyles(userSide), [userSide]);
 
   const handleLogout = () => {
     Alert.alert("Log Out", "Are you sure you want to log out?", [
@@ -96,7 +108,11 @@ export default function ProfileScreen() {
         text: "Log Out",
         style: "destructive",
         onPress: async () => {
-          await removePushToken();
+          try {
+            await removePushToken();
+          } catch (e) {
+            console.error("[Profile] Failed to remove push token:", e);
+          }
           await signOut(auth);
           router.replace("/");
         },
@@ -104,25 +120,42 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const sideColor = schoolColor(userData?.side || "usc");
-  const sideName = userData?.side === "usc" ? "USC" : "UCLA";
-
-  if (loading) {
+  if (loading || !profile) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={accentColor(profileSide)} />
+          <ActivityIndicator size="large" color={accentColor(userSide)} />
         </View>
       </View>
     );
   }
 
+  const accent = accentColor(userSide);
+  const sideName = profile.side === "usc" ? "USC" : "UCLA";
+  const isFresh = profile.wins === 0 && profile.gamesPlayed === 0;
+  const winRateLocked = profile.gamesPlayed < WIN_RATE_UNLOCK_AT;
+  const winRate =
+    profile.gamesPlayed > 0
+      ? Math.round((profile.wins / profile.gamesPlayed) * 100)
+      : 0;
+  const isRanked = profile.currentRank !== null && profile.currentRank > 0;
+
+  // Weekly wins are only valid if the stored week matches this week
+  const currentWeekKey = getCurrentISOWeekKey();
+  const validWeeklyWins =
+    profile.weeklyWinsWeek === currentWeekKey ? profile.weeklyWins : 0;
+
+  const mainPhoto = profile.photos[0];
+  const appVersion = Constants.expoConfig?.version || "0.9.0";
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Profile</Text>
         <Pressable
-          style={styles.settingsButton}
+          style={styles.gearButton}
+          hitSlop={10}
           onPress={() => router.push("/profile/settings" as any)}
         >
           <FontAwesome name="cog" size={22} color="rgba(255,255,255,0.5)" />
@@ -130,290 +163,526 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView
-        showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Challenges counter card */}
-        <Pressable style={styles.challengesCard}>
-          <View style={styles.challengesLeft}>
-            <FontAwesome name="bolt" size={22} color={accentColor(profileSide)} />
-            <View>
-              <Text style={styles.challengesCount}>{challengesCount}</Text>
-              <Text style={styles.challengesLabel}>rivals challenged you</Text>
+        {/* ─────────── PLAYER CARD ─────────── */}
+        <View style={styles.playerCard}>
+          {/* Rank pill (top-right corner) — only if ranked in top 100 */}
+          {isRanked && (
+            <Pressable
+              style={styles.rankPill}
+              onPress={() =>
+                router.push("/(tabs)/scoreboard?scrollTo=me" as any)
+              }
+              hitSlop={6}
+            >
+              <Text style={styles.rankPillText}>#{profile.currentRank}</Text>
+            </Pressable>
+          )}
+
+          <View style={styles.playerCardInner}>
+            {/* Circular photo with school-color ring */}
+            <View style={[styles.avatarRing, { borderColor: accent }]}>
+              {mainPhoto ? (
+                <Image source={{ uri: mainPhoto }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarEmpty]}>
+                  <FontAwesome
+                    name="camera"
+                    size={20}
+                    color="rgba(255,255,255,0.3)"
+                  />
+                </View>
+              )}
+            </View>
+
+            {/* Name, side badge, major, year */}
+            <View style={styles.playerCardInfo}>
+              <View style={styles.nameRow}>
+                <Text style={styles.playerName} numberOfLines={1}>
+                  {profile.name || "Your Name"}
+                </Text>
+                <View style={[styles.sidePill, { backgroundColor: accent }]}>
+                  <Text style={styles.sidePillText}>
+                    {profile.side === "usc" ? "TROJAN" : "BRUIN"}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.playerMajor} numberOfLines={1}>
+                {profile.major || "Set your major"}
+              </Text>
+              <Text style={styles.playerYear}>
+                {profile.gradYear
+                  ? profile.gradYear === "Graduate"
+                    ? "Graduate"
+                    : `Class of ${profile.gradYear}`
+                  : "Set your class year"}
+              </Text>
             </View>
           </View>
-          <View style={styles.blurredGrid}>
-            {[0, 1, 2].map((i) => (
-              <View key={i} style={styles.blurredThumb}>
-                <FontAwesome name="user" size={14} color="rgba(255,255,255,0.1)" />
+
+          {/* Divider */}
+          <View style={styles.playerCardDivider} />
+
+          {/* Preview + Edit inline */}
+          <View style={styles.playerCardActions}>
+            <Pressable
+              style={styles.playerCardAction}
+              onPress={() => router.push("/profile/preview" as any)}
+            >
+              <FontAwesome
+                name="eye"
+                size={14}
+                color="rgba(255,255,255,0.6)"
+              />
+              <Text style={styles.playerCardActionText}>Preview</Text>
+            </Pressable>
+            <View style={styles.actionDivider} />
+            <Pressable
+              style={styles.playerCardAction}
+              onPress={() => router.push("/profile/edit" as any)}
+            >
+              <FontAwesome
+                name="pencil"
+                size={14}
+                color="rgba(255,255,255,0.6)"
+              />
+              <Text style={styles.playerCardActionText}>Edit</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* ─────────── STATS ROW or EMPTY STATE ─────────── */}
+        {isFresh ? (
+          <View style={styles.emptyStateCard}>
+            <Text style={[styles.emptyStateIcon, { color: accent }]}>⚔</Text>
+            <Text style={styles.emptyStateTitle}>Your record starts here</Text>
+            <Text style={styles.emptyStateBody}>
+              Play your first showdown — wins, rank, and school contribution
+              show up as you play.
+            </Text>
+            <Pressable
+              style={[styles.emptyStateButton, { backgroundColor: accent }]}
+              onPress={() => router.push("/(tabs)/duels" as any)}
+            >
+              <Text style={styles.emptyStateButtonText}>Find a rival →</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.statsCard}>
+            {/* Wins */}
+            <View style={styles.statCell}>
+              <View style={styles.statValueRow}>
+                <FontAwesome name="trophy" size={14} color={accent} />
+                <Text style={styles.statValue}>{profile.wins}</Text>
               </View>
-            ))}
+              <Text style={styles.statLabel}>Lifetime</Text>
+            </View>
+
+            <View style={styles.statDivider} />
+
+            {/* Win Rate */}
+            <View style={styles.statCell}>
+              <Text
+                style={
+                  winRateLocked ? styles.statValueLocked : styles.statValue
+                }
+              >
+                {winRateLocked ? "—" : `${winRate}%`}
+              </Text>
+              <Text style={styles.statLabel}>
+                {winRateLocked
+                  ? `${WIN_RATE_UNLOCK_AT - profile.gamesPlayed} more ${
+                      WIN_RATE_UNLOCK_AT - profile.gamesPlayed === 1
+                        ? "game"
+                        : "games"
+                    }`
+                  : "Showdowns"}
+              </Text>
+            </View>
+
+            <View style={styles.statDivider} />
+
+            {/* Rank — tappable, routes to Scoreboard */}
+            <Pressable
+              style={styles.statCell}
+              onPress={() =>
+                router.push("/(tabs)/scoreboard?scrollTo=me" as any)
+              }
+            >
+              <Text
+                style={isRanked ? styles.statValue : styles.statValueLocked}
+              >
+                {isRanked ? `#${profile.currentRank}` : "—"}
+              </Text>
+              <Text style={styles.statLabel}>
+                {isRanked ? "Overall" : "Unranked"}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* ─────────── CONTRIBUTION LINE ─────────── */}
+        {!isFresh && (
+          <View style={styles.contributionRow}>
+            {validWeeklyWins > 0 ? (
+              <Text style={styles.contributionText}>
+                You've contributed{" "}
+                <Text style={[styles.contributionNumber, { color: accent }]}>
+                  {validWeeklyWins}
+                </Text>{" "}
+                {validWeeklyWins === 1 ? "win" : "wins"} to {sideName} this week.
+              </Text>
+            ) : (
+              <Text style={styles.contributionText}>
+                Haven't won for {sideName} this week yet —{" "}
+                <Text
+                  style={[styles.contributionLink, { color: accent }]}
+                  onPress={() => router.push("/(tabs)/duels" as any)}
+                >
+                  get in the game →
+                </Text>
+              </Text>
+            )}
+          </View>
+        )}
+
+        {/* ─────────── INSTAGRAM CARD ─────────── */}
+        <Pressable
+          style={styles.igCard}
+          onPress={() => Linking.openURL(INSTAGRAM_URL)}
+        >
+          <View style={styles.igStripe} />
+          <View style={styles.igContent}>
+            <FontAwesome name="instagram" size={22} color="#fff" />
+            <View style={styles.igTextBlock}>
+              <Text style={styles.igTitle}>Follow CrossTown</Text>
+              <Text style={styles.igHandle}>{INSTAGRAM_HANDLE}</Text>
+            </View>
+          </View>
+          <View style={styles.igButton}>
+            <Text style={styles.igButtonText}>Follow</Text>
           </View>
         </Pressable>
 
-        {/* Stats row */}
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{showdownsCount}</Text>
-            <Text style={styles.statLabel}>Showdowns</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{challengesCount}</Text>
-            <Text style={styles.statLabel}>Challenges</Text>
-          </View>
-        </View>
+        {/* ─────────── LOG OUT ─────────── */}
+        <Pressable onPress={handleLogout} style={styles.logoutWrap}>
+          <Text style={styles.logoutText}>Log Out</Text>
+        </Pressable>
 
-        {/* Profile card preview */}
-        <View style={styles.profileCard}>
-          {/* Photo */}
-          {userData?.photos && userData.photos.length > 0 ? (
-            <View style={styles.photoContainer}>
-              <Image
-                source={{ uri: userData.photos[currentPhotoIndex] }}
-                style={styles.profilePhoto}
-              />
-              {userData.photos.length > 1 && (
-                <View style={styles.photoIndicators}>
-                  {userData.photos.map((_, i) => (
-                    <View
-                      key={i}
-                      style={[
-                        styles.indicator,
-                        i === currentPhotoIndex && styles.indicatorActive,
-                      ]}
-                    />
-                  ))}
-                </View>
-              )}
-              {userData.photos.length > 1 && (
-                <>
-                  <Pressable
-                    style={styles.photoNavLeft}
-                    onPress={() =>
-                      setCurrentPhotoIndex(Math.max(0, currentPhotoIndex - 1))
-                    }
-                  />
-                  <Pressable
-                    style={styles.photoNavRight}
-                    onPress={() =>
-                      setCurrentPhotoIndex(
-                        Math.min(userData.photos.length - 1, currentPhotoIndex + 1)
-                      )
-                    }
-                  />
-                </>
-              )}
-            </View>
-          ) : (
-            <View style={styles.noPhotoContainer}>
-              <FontAwesome name="camera" size={40} color="rgba(255,255,255,0.2)" />
-            </View>
-          )}
-
-          {/* Info overlay */}
-          <View style={styles.profileInfo}>
-            <View style={[styles.sideBadge, { backgroundColor: sideColor }]}>
-              <Text style={styles.sideBadgeText}>{sideName}</Text>
-            </View>
-            <Text style={styles.profileName}>
-              {userData?.name}
-            </Text>
-            <Text style={styles.profileDetails}>
-              {userData?.major} • {userData?.gradYear === "Graduate" ? "Graduate" : `Class of ${userData?.gradYear}`}
-            </Text>
-            {userData?.bio ? (
-              <Text style={styles.profileBio}>{userData.bio}</Text>
-            ) : null}
-          </View>
-
-          {/* Edit button */}
-          <Pressable
-            style={styles.editButton}
-            onPress={() => router.push("/profile/edit" as any)}
-          >
-            <FontAwesome name="pencil" size={14} color={accentColor(profileSide)} />
-            <Text style={styles.editButtonText}>Edit Profile</Text>
-          </Pressable>
-        </View>
-
-        {/* Quick actions */}
-        <View style={styles.actionsSection}>
-          <Pressable
-            style={styles.actionRow}
-            onPress={() => router.push("/profile/settings" as any)}
-          >
-            <View style={styles.actionLeft}>
-              <FontAwesome name="cog" size={18} color="rgba(255,255,255,0.5)" />
-              <Text style={styles.actionText}>Settings</Text>
-            </View>
-            <FontAwesome name="chevron-right" size={14} color="rgba(255,255,255,0.2)" />
-          </Pressable>
-
-          <Pressable style={styles.actionRow} onPress={handleLogout}>
-            <View style={styles.actionLeft}>
-              <FontAwesome name="sign-out" size={18} color="#EF4444" />
-              <Text style={[styles.actionText, { color: "#EF4444" }]}>Log Out</Text>
-            </View>
-          </Pressable>
-        </View>
+        {/* ─────────── FOOTER ─────────── */}
+        <Text style={styles.versionText}>CrossTown v{appVersion}</Text>
       </ScrollView>
     </View>
   );
 }
 
-const createStyles = (_s: string) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0F172A" },
-  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  headerTitle: { fontSize: 28, fontWeight: "800", color: "#fff" },
-  settingsButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 120 },
+const createStyles = (side: string) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: "#0F172A" },
+    centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+    },
+    headerTitle: { fontSize: 28, fontWeight: "800", color: "#fff" },
+    gearButton: {
+      width: 40,
+      height: 40,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    scrollContent: {
+      paddingHorizontal: 20,
+      paddingBottom: 120,
+    },
 
-  // Challenges card
-  challengesCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: accentBg(_s, 0.06),
-    borderWidth: 1,
-    borderColor: accentBg(_s, 0.12),
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 16,
-  },
-  challengesLeft: { flexDirection: "row", alignItems: "center", gap: 14 },
-  challengesCount: { fontSize: 28, fontWeight: "900", color: accentColor(_s) },
-  challengesLabel: { fontSize: 13, color: "rgba(255,255,255,0.4)", marginTop: -2 },
-  blurredGrid: { flexDirection: "row", gap: 6 },
-  blurredThumb: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
+    // ─── Player Card ───
+    playerCard: {
+      backgroundColor: "#1E293B",
+      borderRadius: 20,
+      padding: 20,
+      position: "relative",
+    },
+    playerCardInner: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 16,
+    },
+    avatarRing: {
+      width: 86,
+      height: 86,
+      borderRadius: 43,
+      borderWidth: 3,
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 2,
+    },
+    avatar: {
+      width: 76,
+      height: 76,
+      borderRadius: 38,
+      backgroundColor: "#334155",
+    },
+    avatarEmpty: {
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    playerCardInfo: {
+      flex: 1,
+      gap: 3,
+    },
+    nameRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      flexWrap: "wrap",
+      marginBottom: 3,
+    },
+    playerName: {
+      fontSize: 20,
+      fontWeight: "800",
+      color: "#fff",
+      flexShrink: 1,
+    },
+    sidePill: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6,
+    },
+    sidePillText: {
+      fontSize: 10,
+      fontWeight: "800",
+      color: "#fff",
+      letterSpacing: 1,
+    },
+    playerMajor: {
+      fontSize: 14,
+      color: "rgba(255,255,255,0.55)",
+    },
+    playerYear: {
+      fontSize: 14,
+      color: "rgba(255,255,255,0.55)",
+    },
 
-  // Stats
-  statsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#1E293B",
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 20,
-  },
-  statItem: { flex: 1, alignItems: "center" },
-  statNumber: { fontSize: 24, fontWeight: "800", color: "#fff" },
-  statLabel: { fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 2 },
-  statDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: "rgba(255,255,255,0.08)",
-  },
+    rankPill: {
+      position: "absolute",
+      top: 14,
+      right: 14,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 10,
+      backgroundColor: "rgba(255,255,255,0.08)",
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.08)",
+    },
+    rankPillText: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: "rgba(255,255,255,0.7)",
+      letterSpacing: 0.5,
+    },
 
-  // Profile card
-  profileCard: {
-    backgroundColor: "#1E293B",
-    borderRadius: 20,
-    overflow: "hidden",
-    marginBottom: 20,
-  },
-  photoContainer: { width: "100%", aspectRatio: 0.8, position: "relative" },
-  profilePhoto: { width: "100%", height: "100%", backgroundColor: "#334155" },
-  photoIndicators: {
-    position: "absolute",
-    top: 12,
-    left: 16,
-    right: 16,
-    flexDirection: "row",
-    gap: 4,
-  },
-  indicator: {
-    flex: 1,
-    height: 3,
-    backgroundColor: "rgba(255,255,255,0.3)",
-    borderRadius: 2,
-  },
-  indicatorActive: { backgroundColor: "#fff" },
-  photoNavLeft: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: "40%",
-  },
-  photoNavRight: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: "40%",
-  },
-  noPhotoContainer: {
-    width: "100%",
-    aspectRatio: 1.2,
-    backgroundColor: "#334155",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  profileInfo: { padding: 20 },
-  sideBadge: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  sideBadgeText: { fontSize: 12, fontWeight: "800", color: "#fff", letterSpacing: 1 },
-  profileName: { fontSize: 24, fontWeight: "800", color: "#fff", marginBottom: 4 },
-  profileDetails: { fontSize: 15, color: "rgba(255,255,255,0.5)", marginBottom: 8 },
-  profileBio: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.4)",
-    lineHeight: 21,
-    marginTop: 4,
-  },
-  editButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
-  },
-  editButtonText: { fontSize: 15, fontWeight: "600", color: accentColor(_s) },
+    playerCardDivider: {
+      height: 1,
+      backgroundColor: "rgba(255,255,255,0.06)",
+      marginTop: 18,
+      marginHorizontal: -20,
+    },
+    playerCardActions: {
+      flexDirection: "row",
+      marginTop: 6,
+      marginHorizontal: -20,
+      marginBottom: -14,
+    },
+    playerCardAction: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      paddingVertical: 14,
+    },
+    playerCardActionText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: "rgba(255,255,255,0.7)",
+    },
+    actionDivider: {
+      width: 1,
+      backgroundColor: "rgba(255,255,255,0.06)",
+    },
 
-  // Actions
-  actionsSection: {
-    backgroundColor: "#1E293B",
-    borderRadius: 14,
-    overflow: "hidden",
-  },
-  actionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.04)",
-  },
-  actionLeft: { flexDirection: "row", alignItems: "center", gap: 14 },
-  actionText: { fontSize: 16, fontWeight: "500", color: "#fff" },
-});
+    // ─── Empty State Card ───
+    emptyStateCard: {
+      backgroundColor: "#1E293B",
+      borderRadius: 20,
+      padding: 28,
+      marginTop: 16,
+      alignItems: "center",
+    },
+    emptyStateIcon: {
+      fontSize: 36,
+      fontWeight: "900",
+      marginBottom: 12,
+    },
+    emptyStateTitle: {
+      fontSize: 17,
+      fontWeight: "800",
+      color: "#fff",
+      marginBottom: 8,
+    },
+    emptyStateBody: {
+      fontSize: 13,
+      color: "rgba(255,255,255,0.5)",
+      textAlign: "center",
+      lineHeight: 19,
+      marginBottom: 20,
+    },
+    emptyStateButton: {
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 12,
+      alignSelf: "stretch",
+      alignItems: "center",
+    },
+    emptyStateButtonText: {
+      fontSize: 15,
+      fontWeight: "800",
+      color: "#fff",
+      letterSpacing: 0.3,
+    },
+
+    // ─── Stats Row ───
+    statsCard: {
+      backgroundColor: "#1E293B",
+      borderRadius: 14,
+      marginTop: 16,
+      flexDirection: "row",
+      paddingVertical: 16,
+    },
+    statCell: {
+      flex: 1,
+      alignItems: "center",
+      gap: 4,
+    },
+    statValueRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    statValue: {
+      fontSize: 22,
+      fontWeight: "800",
+      color: "#fff",
+    },
+    statValueLocked: {
+      fontSize: 22,
+      fontWeight: "800",
+      color: "rgba(255,255,255,0.25)",
+    },
+    statLabel: {
+      fontSize: 11,
+      color: "rgba(255,255,255,0.4)",
+      textAlign: "center",
+      paddingHorizontal: 4,
+    },
+    statDivider: {
+      width: 1,
+      backgroundColor: "rgba(255,255,255,0.06)",
+      marginVertical: 4,
+    },
+
+    // ─── Contribution line ───
+    contributionRow: {
+      marginTop: 20,
+      paddingHorizontal: 10,
+    },
+    contributionText: {
+      fontSize: 14,
+      color: "rgba(255,255,255,0.55)",
+      textAlign: "center",
+      lineHeight: 20,
+    },
+    contributionNumber: {
+      fontWeight: "800",
+    },
+    contributionLink: {
+      fontWeight: "700",
+      textDecorationLine: "underline",
+    },
+
+    // ─── Instagram Card ───
+    igCard: {
+      backgroundColor: "#1E293B",
+      borderRadius: 14,
+      marginTop: 24,
+      flexDirection: "row",
+      alignItems: "center",
+      overflow: "hidden",
+      paddingVertical: 14,
+      paddingHorizontal: 14,
+      paddingLeft: 18,
+    },
+    igStripe: {
+      position: "absolute",
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: 4,
+      backgroundColor: "#E1306C", // Instagram pink — single color, not gradient
+    },
+    igContent: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      flex: 1,
+    },
+    igTextBlock: {
+      gap: 1,
+    },
+    igTitle: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: "#fff",
+    },
+    igHandle: {
+      fontSize: 12,
+      color: "rgba(255,255,255,0.5)",
+    },
+    igButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 10,
+      backgroundColor: "rgba(255,255,255,0.1)",
+    },
+    igButtonText: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: "#fff",
+    },
+
+    // ─── Log Out ───
+    logoutWrap: {
+      marginTop: 36,
+      alignItems: "center",
+      paddingVertical: 12,
+    },
+    logoutText: {
+      fontSize: 14,
+      color: "#EF4444",
+      fontWeight: "600",
+    },
+
+    // ─── Version footer ───
+    versionText: {
+      fontSize: 11,
+      color: "rgba(255,255,255,0.15)",
+      textAlign: "center",
+      marginTop: 4,
+    },
+  });
