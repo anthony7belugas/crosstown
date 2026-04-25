@@ -6,10 +6,10 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "crosstown",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "owner": "anthony7belugas",
-    "runtimeVersion": "0.9.0",
+    "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/82a1d147-0894-47b1-b79d-31a4b5d5b13a"
     },
@@ -23,7 +23,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0F172A"
       },
       "package": "com.bestiesinc.crosstown"
     },
@@ -41,7 +41,7 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#0F172A",
           "imageWidth": 200
         }
       ]
