@@ -299,9 +299,6 @@ export default function UserProfilePage() {
             <Text style={styles.profileDetails}>
               {profile.major}{profile.gradYear ? ` • ${profile.gradYear === "Graduate" ? "Graduate" : `Class of ${profile.gradYear}`}` : ""}
             </Text>
-            {profile.bio ? (
-              <Text style={styles.profileBio}>{profile.bio}</Text>
-            ) : null}
           </View>
         </View>
 

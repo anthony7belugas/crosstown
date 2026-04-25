@@ -66,7 +66,7 @@ export default function PhotosScreen() {
   };
 
   const handleAddPhoto = async (index: number) => {
-    if (photos.length >= 6) return;
+    if (photos.length >= 2) return;
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
       Alert.alert("Permission Required", "Please allow photo access.");
@@ -260,15 +260,15 @@ export default function PhotosScreen() {
           {renderSlot(0, true)}
         </View>
 
-        {/* Secondary slots — 3 columns */}
+        {/* Secondary slot — one additional photo */}
         <View style={styles.secondaryGrid}>
-          {[1, 2, 3, 4, 5].map((i) => renderSlot(i, false))}
+          {[1].map((i) => renderSlot(i, false))}
         </View>
 
         {/* Counter + hint */}
         <View style={styles.footer}>
           <Text style={styles.photoCount}>
-            {photos.length} / 6 photos
+            {photos.length} / 2 photos
           </Text>
           <Text style={styles.hint}>
             You can always add or remove photos in settings

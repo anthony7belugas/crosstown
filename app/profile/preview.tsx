@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebaseConfig";
-import { accentColor, rivalColor, schoolColor } from "../../utils/colors";
+import { rivalColor, schoolColor } from "../../utils/colors";
 
 const { width, height } = Dimensions.get("window");
 
@@ -156,14 +156,8 @@ export default function PreviewScreen() {
             </Text>
           </View>
 
-          {/* Bio + disabled Challenge button (below photo) */}
+          {/* Disabled Challenge button (below photo) */}
           <View style={styles.cardBottom}>
-            {user.bio ? (
-              <Text style={styles.cardBio} numberOfLines={2}>
-                "{user.bio}"
-              </Text>
-            ) : null}
-
             {/* Grayed Challenge button — rival's color, non-tappable */}
             <View
               style={[

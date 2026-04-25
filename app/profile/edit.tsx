@@ -12,7 +12,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebaseConfig";
 import { accentBg, accentColor } from "../../utils/colors";
-import { checkContentFilter } from "../../utils/contentFilter";
 import { clearCachedProfile } from "../../utils/userProfileCache";
 
 const MAJORS = [
@@ -28,12 +27,10 @@ const MAJORS = [
   "Sociology", "Theater", "Undecided", "Other",
 ];
 const YEARS = ["2026", "2027", "2028", "2029", "2030", "2031", "Graduate"];
-const ABOUT_MAX = 150;
 const NAME_MAX = 40;
 
 interface OriginalData {
   name: string;
-  bio: string;
   major: string;
   gradYear: string;
 }
@@ -42,7 +39,6 @@ export default function EditProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [name, setName] = useState("");
-  const [bio, setBio] = useState("");
   const [major, setMajor] = useState("");
   const [gradYear, setGradYear] = useState("");
   const [original, setOriginal] = useState<OriginalData | null>(null);
@@ -64,12 +60,10 @@ export default function EditProfileScreen() {
         const data = userDoc.data();
         const initial: OriginalData = {
           name: data.name || "",
-          bio: data.bio || "",
           major: data.major || "",
           gradYear: data.gradYear || "",
         };
         setName(initial.name);
-        setBio(initial.bio);
         setMajor(initial.major);
         setGradYear(initial.gradYear);
         setOriginal(initial);
@@ -87,11 +81,10 @@ export default function EditProfileScreen() {
     if (!original) return false;
     return (
       name.trim() !== original.name ||
-      bio.trim() !== original.bio ||
       major !== original.major ||
       gradYear !== original.gradYear
     );
-  }, [name, bio, major, gradYear, original]);
+  }, [name, major, gradYear, original]);
 
   const handleSave = async () => {
     if (!auth.currentUser || !isDirty || saving) return;
@@ -107,13 +100,10 @@ export default function EditProfileScreen() {
       Alert.alert("Class Year Required", "Please select your class year.");
       return;
     }
-    if (bio.trim() && !checkContentFilter(bio.trim())) return;
-
     setSaving(true);
     try {
       await updateDoc(doc(db, "users", auth.currentUser.uid), {
         name: name.trim(),
-        bio: bio.trim(),
         major,
         gradYear,
       });
@@ -245,26 +235,6 @@ export default function EditProfileScreen() {
           ))}
         </View>
 
-        {/* ABOUT */}
-        <Text style={styles.sectionLabel}>About</Text>
-        <TextInput
-          style={[styles.textInput, styles.bioInput]}
-          value={bio}
-          onChangeText={(t) =>
-            t.length <= ABOUT_MAX && setBio(t)
-          }
-          placeholder="Tell your rivals about yourself..."
-          placeholderTextColor="rgba(255,255,255,0.25)"
-          multiline
-          maxLength={ABOUT_MAX}
-          textAlignVertical="top"
-        />
-        <Text style={styles.charCount}>
-          {bio.length} / {ABOUT_MAX}
-        </Text>
-        <Text style={styles.helperText}>
-          Tell your rivals about yourself.
-        </Text>
       </ScrollView>
     </View>
   );

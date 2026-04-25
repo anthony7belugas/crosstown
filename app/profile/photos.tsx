@@ -18,7 +18,7 @@ import { auth, db, storage } from "../../firebaseConfig";
 import { accentBg, accentColor } from "../../utils/colors";
 import { clearCachedProfile } from "../../utils/userProfileCache";
 
-const MAX_PHOTOS = 4;
+const MAX_PHOTOS = 2;
 const MIN_PHOTOS = 1;
 const { width } = Dimensions.get("window");
 const GRID_GAP = 12;

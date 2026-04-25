@@ -1,122 +1,198 @@
 // app/(tabs)/duels.tsx
-// Duels — card stack with ⚔ Challenge button on card, pass left to skip
-// Matches the spec: "the Challenge button is full-width, bold, colored in
-// the current user's school color, and reads '⚔ Challenge'."
+// Duels — vertical list of rivals from the opposite school.
+// Tap row body → opens RivalProfileSheet. Tap row Challenge → fires challenge.
+// No swipe gestures anywhere on this screen.
 import { FontAwesome } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import {
-  addDoc, collection, doc, getDoc, getDocs, query,
-  serverTimestamp, updateDoc, where,
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  increment,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where,
 } from "firebase/firestore";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator, Animated, Dimensions, Image,
-  PanResponder, Pressable, StyleSheet, Text, View,
+  ActivityIndicator,
+  FlatList,
+  LayoutAnimation,
+  Platform,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  UIManager,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { MoreOptionsMenu } from "../../components/MoreOptionsMenu";
 import { BlockModal } from "../../components/BlockModal";
+import { MoreOptionsMenu } from "../../components/MoreOptionsMenu";
 import { ReportModal } from "../../components/ReportModal";
+import {
+  RivalProfileSheet,
+  RivalProfileSheetHandle,
+} from "../../components/RivalProfileSheet";
+import { RivalCard, RivalRow } from "../../components/RivalRow";
+import { ScoreboardBanner } from "../../components/ScoreboardBanner";
 import { auth, db } from "../../firebaseConfig";
 import { blockUser, reportUser, ReportReason } from "../../utils/blockUtils";
 import { DAILY_CHALLENGE_LIMIT } from "../../utils/challengeLimits";
-import { accentColor, accentBg, schoolColor } from "../../utils/colors";
+import { accentBg, accentColor } from "../../utils/colors";
 
-const { width, height } = Dimensions.get("window");
-const SWIPE_THRESHOLD = width * 0.25;
-
-interface ProfileCard {
-  uid: string;
-  name: string;
-  side: "usc" | "ucla";
-  photos: string[];
-  major: string;
-  gradYear: string;
-  bio: string;
+// Enable LayoutAnimation on Android
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 function getTodayString(): string {
   return new Date().toLocaleDateString("en-CA");
 }
 
+type LoadMode = "initial" | "refresh";
+
 export default function DuelsScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const [profiles, setProfiles] = useState<ProfileCard[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const [profiles, setProfiles] = useState<RivalCard[]>([]);
   const [loading, setLoading] = useState(true);
-  const [challengesRemaining, setChallengesRemaining] = useState(DAILY_CHALLENGE_LIMIT);
-  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [challengesRemaining, setChallengesRemaining] = useState(
+    DAILY_CHALLENGE_LIMIT
+  );
+  const [currentUserData, setCurrentUserData] = useState<any>(null);
+
+  // Sheet state
+  const [viewingProfile, setViewingProfile] = useState<RivalCard | null>(null);
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const sheetRef = useRef<RivalProfileSheetHandle>(null);
+
+  // Block / report state
   const [showOptions, setShowOptions] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
-  const position = useRef(new Animated.ValueXY()).current;
-  const [currentUserData, setCurrentUserData] = useState<any>(null);
+
+  // Tracks Firestore writes in flight so rapid taps don't exceed daily limit
+  const inFlightChallengesRef = useRef(0);
+
+  // Unmount guard for async handlers
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const userSide = currentUserData?.side || "usc";
-  const styles = createStyles(userSide);
+  const styles = useMemo(() => createStyles(userSide), [userSide]);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData("initial");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const loadData = async () => {
-    if (!auth.currentUser) return;
-    setLoading(true);
+  const loadData = async (mode: LoadMode = "initial") => {
+    if (!auth.currentUser) {
+      if (isMountedRef.current && mode === "initial") setLoading(false);
+      return;
+    }
+    if (mode === "initial" && isMountedRef.current) setLoading(true);
+
     try {
       const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
-      if (!userDoc.exists()) { setLoading(false); return; }
+      if (!userDoc.exists()) return;
       const userData = userDoc.data();
-      setCurrentUserData(userData);
+      if (isMountedRef.current) setCurrentUserData(userData);
 
       const today = getTodayString();
-      let challengeCount = 0;
-      if (userData.dailyChallengeDate === today) challengeCount = userData.dailyChallengeCount || 0;
-      setChallengesRemaining(Math.max(0, DAILY_CHALLENGE_LIMIT - challengeCount));
+      const savedCount =
+        userData.dailyChallengeDate === today
+          ? userData.dailyChallengeCount || 0
+          : 0;
+      if (isMountedRef.current) {
+        setChallengesRemaining(Math.max(0, DAILY_CHALLENGE_LIMIT - savedCount));
+      }
 
-      // Build exclusion set: already challenged, challenged by, in showdown, passed today
+      // Build exclusion set
       const excludedIds = new Set<string>();
-
-      const challengesSent = await getDocs(
-        query(collection(db, "challenges"), where("fromUserId", "==", auth.currentUser.uid))
-      );
-      challengesSent.docs.forEach((d) => excludedIds.add(d.data().toUserId));
-
-      const challengesReceived = await getDocs(
-        query(collection(db, "challenges"), where("toUserId", "==", auth.currentUser.uid))
-      );
-      challengesReceived.docs.forEach((d) => excludedIds.add(d.data().fromUserId));
-
-      const showdownsSnap = await getDocs(
-        query(collection(db, "showdowns"), where("users", "array-contains", auth.currentUser.uid))
-      );
-      showdownsSnap.docs.forEach((d) => {
-        d.data().users.forEach((uid: string) => excludedIds.add(uid));
-      });
-
-      const passesSnap = await getDocs(
-        query(collection(db, "passes"), where("fromUserId", "==", auth.currentUser.uid), where("date", "==", today))
-      );
-      passesSnap.docs.forEach((d) => excludedIds.add(d.data().toUserId));
-
-      (userData.blockedUsers || []).forEach((id: string) => excludedIds.add(id));
-      (userData.blockedByUsers || []).forEach((id: string) => excludedIds.add(id));
       excludedIds.add(auth.currentUser.uid);
 
-      // Fetch rival profiles
-      const rivalSide = userData.side === "usc" ? "ucla" : "usc";
+      const [challengesSent, challengesReceived, showdownsSnap, passesSnap] =
+        await Promise.all([
+          getDocs(
+            query(
+              collection(db, "challenges"),
+              where("fromUserId", "==", auth.currentUser.uid)
+            )
+          ),
+          getDocs(
+            query(
+              collection(db, "challenges"),
+              where("toUserId", "==", auth.currentUser.uid)
+            )
+          ),
+          getDocs(
+            query(
+              collection(db, "showdowns"),
+              where("users", "array-contains", auth.currentUser.uid)
+            )
+          ),
+          getDocs(
+            query(
+              collection(db, "passes"),
+              where("fromUserId", "==", auth.currentUser.uid),
+              where("date", "==", today)
+            )
+          ),
+        ]);
 
-      const rivalsSnap = await getDocs(
-        query(collection(db, "users"), where("side", "==", rivalSide), where("profileCompleted", "==", true))
+      challengesSent.docs.forEach((d) => excludedIds.add(d.data().toUserId));
+      challengesReceived.docs.forEach((d) =>
+        excludedIds.add(d.data().fromUserId)
       );
-      const eligible: ProfileCard[] = [];
+      showdownsSnap.docs.forEach((d) => {
+        (d.data().users || []).forEach((uid: string) => excludedIds.add(uid));
+      });
+      passesSnap.docs.forEach((d) => excludedIds.add(d.data().toUserId));
+
+      (userData.blockedUsers || []).forEach((id: string) =>
+        excludedIds.add(id)
+      );
+      (userData.blockedByUsers || []).forEach((id: string) =>
+        excludedIds.add(id)
+      );
+
+      const rivalSide = userData.side === "usc" ? "ucla" : "usc";
+      const rivalsSnap = await getDocs(
+        query(
+          collection(db, "users"),
+          where("side", "==", rivalSide),
+          where("profileCompleted", "==", true)
+        )
+      );
+
+      const eligible: RivalCard[] = [];
       rivalsSnap.docs.forEach((d) => {
         if (excludedIds.has(d.id)) return;
         const data = d.data();
+        const photos = (data.photos || []).slice(0, 2);
+        if (photos.length === 0) return; // skip profiles with no photos
         eligible.push({
-          uid: d.id, name: data.name || "Unknown",
-          side: data.side, photos: data.photos || [], major: data.major || "",
-          gradYear: data.gradYear || "", bio: data.bio || "",
+          uid: d.id,
+          name: data.name || "Unknown",
+          side: data.side,
+          photos,
+          major: data.major || "",
+          gradYear: data.gradYear || "",
         });
       });
 
@@ -125,30 +201,44 @@ export default function DuelsScreen() {
         const j = Math.floor(Math.random() * (i + 1));
         [eligible[i], eligible[j]] = [eligible[j], eligible[i]];
       }
-      setProfiles(eligible);
-      setCurrentIndex(0);
+
+      if (isMountedRef.current) setProfiles(eligible);
     } catch (error) {
-      console.error("Error loading profiles:", error);
+      console.error("[Duels] loadData error:", error);
     } finally {
-      setLoading(false);
+      if (isMountedRef.current && mode === "initial") setLoading(false);
     }
   };
 
-  const incrementChallengeCount = async () => {
-    if (!auth.currentUser) return;
-    const today = getTodayString();
-    const userRef = doc(db, "users", auth.currentUser.uid);
-    const snap = await getDoc(userRef);
-    const d = snap.data() || {};
-    let newCount = d.dailyChallengeDate === today ? (d.dailyChallengeCount || 0) + 1 : 1;
-    await updateDoc(userRef, { dailyChallengeCount: newCount, dailyChallengeDate: today });
-    setChallengesRemaining(Math.max(0, DAILY_CHALLENGE_LIMIT - newCount));
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData("refresh");
+    if (isMountedRef.current) setRefreshing(false);
   };
 
-  const handleChallenge = async (profile: ProfileCard) => {
-    if (!auth.currentUser || challengesRemaining <= 0) return;
+  const removeFromList = (uid: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setProfiles((prev) => prev.filter((p) => p.uid !== uid));
+  };
+
+  // ─── Challenge flow ─────────────────────────────────────────
+  // Order: (1) optimistically reserve a slot, (2) write challenge,
+  // (3) increment the daily count. If the challenge write fails, we release
+  // the reserved slot and never touch the daily count. This avoids losing
+  // slots to failed writes.
+
+  const handleChallenge = async (profile: RivalCard) => {
+    if (!auth.currentUser) return;
+
+    // Optimistic reservation — blocks rapid-fire taps from exceeding limit
+    if (challengesRemaining - inFlightChallengesRef.current <= 0) return;
+    inFlightChallengesRef.current += 1;
+    if (isMountedRef.current) {
+      setChallengesRemaining((prev) => Math.max(0, prev - 1));
+    }
+
     try {
-      await incrementChallengeCount();
+      // Write the challenge doc first — if this fails, release the reservation
       await addDoc(collection(db, "challenges"), {
         fromUserId: auth.currentUser.uid,
         toUserId: profile.uid,
@@ -157,14 +247,51 @@ export default function DuelsScreen() {
         status: "pending",
         createdAt: serverTimestamp(),
       });
-      setCurrentPhotoIndex(0);
-      setCurrentIndex((p) => p + 1);
+
+      // Then increment the daily count using Firestore's atomic increment.
+      // If today is a new day, we reset to 1 in a separate branch.
+      const userRef = doc(db, "users", auth.currentUser.uid);
+      const today = getTodayString();
+      if (currentUserData?.dailyChallengeDate === today) {
+        await updateDoc(userRef, { dailyChallengeCount: increment(1) });
+      } else {
+        await updateDoc(userRef, {
+          dailyChallengeCount: 1,
+          dailyChallengeDate: today,
+        });
+        // Update our local mirror so the next challenge uses increment()
+        if (isMountedRef.current) {
+          setCurrentUserData((prev: any) => ({
+            ...(prev || {}),
+            dailyChallengeDate: today,
+            dailyChallengeCount: 1,
+          }));
+        }
+      }
+
+      // Successful write — the optimistic state is now confirmed.
+      removeFromList(profile.uid);
     } catch (error) {
-      console.error("Error sending challenge:", error);
+      console.error("[Duels] challenge failed:", error);
+      // Roll back the reservation
+      if (isMountedRef.current) {
+        setChallengesRemaining((prev) =>
+          Math.min(DAILY_CHALLENGE_LIMIT, prev + 1)
+        );
+      }
+      // NOTE: the row-level "✓ Sent" animation has already played. We leave
+      // the row out of the list rather than trying to restore it; the user
+      // can pull-to-refresh to see it again. Silent failure is preferable to
+      // a confusing mid-animation restore.
+    } finally {
+      inFlightChallengesRef.current = Math.max(
+        0,
+        inFlightChallengesRef.current - 1
+      );
     }
   };
 
-  const handlePass = async (profile: ProfileCard) => {
+  const handlePass = async (profile: RivalCard) => {
     if (!auth.currentUser) return;
     try {
       await addDoc(collection(db, "passes"), {
@@ -173,245 +300,253 @@ export default function DuelsScreen() {
         date: getTodayString(),
         createdAt: serverTimestamp(),
       });
-      setCurrentPhotoIndex(0);
-      setCurrentIndex((p) => p + 1);
+      removeFromList(profile.uid);
     } catch (error) {
-      console.error("Error:", error);
+      console.error("[Duels] pass failed:", error);
     }
   };
 
-  // Gesture: right = challenge, left = pass (silent)
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 10,
-      onPanResponderMove: (_, g) => {
-        position.setValue({ x: g.dx, y: g.dy * 0.3 });
-      },
-      onPanResponderRelease: (_, g) => {
-        const current = profiles[currentIndex];
-        if (!current) return;
-        if (g.dx > SWIPE_THRESHOLD) {
-          Animated.timing(position, {
-            toValue: { x: width + 100, y: g.dy }, duration: 250, useNativeDriver: true,
-          }).start(() => { handleChallenge(current); position.setValue({ x: 0, y: 0 }); });
-        } else if (g.dx < -SWIPE_THRESHOLD) {
-          Animated.timing(position, {
-            toValue: { x: -width - 100, y: g.dy }, duration: 250, useNativeDriver: true,
-          }).start(() => { handlePass(current); position.setValue({ x: 0, y: 0 }); });
-        } else {
-          Animated.spring(position, {
-            toValue: { x: 0, y: 0 }, friction: 5, useNativeDriver: true,
-          }).start();
-        }
-      },
-    })
-  ).current;
+  // ─── Sheet handlers ─────────────────────────────────────────
 
-  const rotate = position.x.interpolate({
-    inputRange: [-width, 0, width], outputRange: ["-12deg", "0deg", "12deg"],
-  });
-  const challengeOpacity = position.x.interpolate({
-    inputRange: [0, SWIPE_THRESHOLD], outputRange: [0, 1], extrapolate: "clamp",
-  });
-  const passOpacity = position.x.interpolate({
-    inputRange: [-SWIPE_THRESHOLD, 0], outputRange: [1, 0], extrapolate: "clamp",
-  });
+  const openSheet = (profile: RivalCard) => {
+    setViewingProfile(profile);
+    setSheetVisible(true);
+  };
 
-  // Tap the Challenge button on the card
-  const handleChallengeButtonTap = () => {
-    const c = profiles[currentIndex];
-    if (!c) return;
-    Animated.timing(position, {
-      toValue: { x: width + 100, y: 0 }, duration: 300, useNativeDriver: true,
-    }).start(() => { handleChallenge(c); position.setValue({ x: 0, y: 0 }); });
+  const onSheetClose = () => {
+    setSheetVisible(false);
+    // Delay clearing profile so sheet has data during slide-out
+    setTimeout(() => {
+      if (isMountedRef.current) setViewingProfile(null);
+    }, 300);
+  };
+
+  const onSheetChallenge = () => {
+    if (!viewingProfile) return;
+    const target = viewingProfile;
+    // Sheet has already animated itself closed before calling this
+    setSheetVisible(false);
+    setTimeout(() => {
+      if (!isMountedRef.current) return;
+      setViewingProfile(null);
+      handleChallenge(target);
+    }, 50);
+  };
+
+  const onSheetSkip = () => {
+    if (!viewingProfile) return;
+    const target = viewingProfile;
+    setSheetVisible(false);
+    setTimeout(() => {
+      if (!isMountedRef.current) return;
+      setViewingProfile(null);
+      handlePass(target);
+    }, 50);
+  };
+
+  // ─── Block / report ─────────────────────────────────────────
+  // Only reachable from the sheet's "..." button.
+
+  const onSheetMoreOptions = () => {
+    setShowOptions(true);
+  };
+
+  const closeSheetAnimated = (after: () => void) => {
+    if (sheetRef.current) {
+      sheetRef.current.animateClose(() => {
+        setSheetVisible(false);
+        setTimeout(() => {
+          if (!isMountedRef.current) return;
+          setViewingProfile(null);
+          after();
+        }, 50);
+      });
+    } else {
+      setSheetVisible(false);
+      setTimeout(() => {
+        if (!isMountedRef.current) return;
+        setViewingProfile(null);
+        after();
+      }, 50);
+    }
   };
 
   const handleBlock = async () => {
-    const c = profiles[currentIndex];
-    if (!c) return;
+    if (!viewingProfile) return;
+    const target = viewingProfile;
     setBlockLoading(true);
-    try { await blockUser(c.uid); setShowBlockModal(false); setCurrentIndex((p) => p + 1); }
-    catch (e) { console.error(e); }
-    finally { setBlockLoading(false); }
+    try {
+      await blockUser(target.uid);
+      if (!isMountedRef.current) return;
+      setShowBlockModal(false);
+      closeSheetAnimated(() => removeFromList(target.uid));
+    } catch (e) {
+      console.error("[Duels] block failed:", e);
+    } finally {
+      if (isMountedRef.current) setBlockLoading(false);
+    }
   };
 
   const handleReport = async (reason: ReportReason, desc?: string) => {
-    const c = profiles[currentIndex];
-    if (!c) return;
+    if (!viewingProfile) return;
     setReportLoading(true);
-    try { await reportUser({ reportedId: c.uid, reason, description: desc }); setShowReportModal(false); }
-    catch (e) { console.error(e); }
-    finally { setReportLoading(false); }
+    try {
+      await reportUser({
+        reportedId: viewingProfile.uid,
+        reason,
+        description: desc,
+      });
+      if (isMountedRef.current) setShowReportModal(false);
+    } catch (e) {
+      console.error("[Duels] report failed:", e);
+    } finally {
+      if (isMountedRef.current) setReportLoading(false);
+    }
   };
 
-  const handlePhotoTap = (tapSide: "left" | "right") => {
-    const c = profiles[currentIndex];
-    if (!c) return;
-    if (tapSide === "right" && currentPhotoIndex < c.photos.length - 1) setCurrentPhotoIndex(currentPhotoIndex + 1);
-    else if (tapSide === "left" && currentPhotoIndex > 0) setCurrentPhotoIndex(currentPhotoIndex - 1);
-  };
+  // ─── Render ─────────────────────────────────────────────────
+  // The sheet and block/report modals are rendered at the end of the tree
+  // UNCONDITIONALLY so they don't unmount if the screen flips to the
+  // loading or daily-limit branch mid-flow.
 
-  const currentProfile = profiles[currentIndex];
+  const Header = (
+    <View style={styles.header}>
+      <View style={styles.headerLeft}>
+        <Text style={styles.headerTitle}>Duels</Text>
+        <Text style={styles.headerCounter}>
+          {challengesRemaining} left today
+        </Text>
+      </View>
+      <Pressable style={styles.bellButton}>
+        <FontAwesome name="bell" size={18} color="rgba(255,255,255,0.5)" />
+      </Pressable>
+    </View>
+  );
 
-  // ─── Empty states ──────────────────────────────────────────
-  if (loading)
+  // Always-rendered overlay layer (sheet + modals) so mid-flow state survives
+  const Overlays = (
+    <>
+      <RivalProfileSheet
+        ref={sheetRef}
+        visible={sheetVisible}
+        profile={viewingProfile}
+        userSide={userSide}
+        challengeDisabled={challengesRemaining <= 0}
+        onChallenge={onSheetChallenge}
+        onSkip={onSheetSkip}
+        onClose={onSheetClose}
+        onOpenMoreOptions={onSheetMoreOptions}
+      />
+      <MoreOptionsMenu
+        visible={showOptions}
+        onClose={() => setShowOptions(false)}
+        onBlock={() => setShowBlockModal(true)}
+        onReport={() => setShowReportModal(true)}
+      />
+      <BlockModal
+        visible={showBlockModal}
+        onClose={() => setShowBlockModal(false)}
+        onBlock={handleBlock}
+        userName={viewingProfile?.name || ""}
+        loading={blockLoading}
+      />
+      <ReportModal
+        visible={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        onSubmit={handleReport}
+        userName={viewingProfile?.name || ""}
+        loading={reportLoading}
+      />
+    </>
+  );
+
+  if (loading) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>Duels</Text>
-          </View>
-        </View>
+        {Header}
+        <ScoreboardBanner />
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={accentColor(userSide)} />
         </View>
+        {Overlays}
       </View>
     );
+  }
 
-  if (challengesRemaining <= 0)
+  if (challengesRemaining <= 0) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>Duels</Text>
-          </View>
-        </View>
+        {Header}
+        <ScoreboardBanner />
         <View style={styles.centered}>
           <View style={styles.emptyIcon}>
-            <FontAwesome name="clock-o" size={40} color={accentColor(userSide)} />
+            <FontAwesome
+              name="clock-o"
+              size={40}
+              color={accentColor(userSide)}
+            />
           </View>
           <Text style={styles.emptyTitle}>Daily Limit Reached</Text>
           <Text style={styles.emptySubtitle}>
             You've used all your challenges for today.{"\n"}Come back tomorrow!
           </Text>
         </View>
+        {Overlays}
       </View>
     );
-
-  if (!currentProfile)
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>Duels</Text>
-          </View>
-        </View>
-        <View style={styles.centered}>
-          <View style={styles.emptyIcon}>
-            <FontAwesome name="search" size={40} color={accentColor(userSide)} />
-          </View>
-          <Text style={styles.emptyTitle}>No More Rivals</Text>
-          <Text style={styles.emptySubtitle}>
-            You've seen everyone for now.{"\n"}Check back later!
-          </Text>
-          <Pressable style={styles.refreshBtn} onPress={loadData}>
-            <Text style={styles.refreshText}>Refresh</Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-
-  // ─── Main render ───────────────────────────────────────────
-  const rivalSideColor = schoolColor(currentProfile.side);
-  const rivalSideName = currentProfile.side === "usc" ? "USC" : "UCLA";
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header: "Duels  30 left today"  🔔 */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>Duels</Text>
-          <Text style={styles.headerCounter}>{challengesRemaining} left today</Text>
-        </View>
-        <Pressable style={styles.bellButton}>
-          <FontAwesome name="bell" size={18} color="rgba(255,255,255,0.5)" />
-        </Pressable>
-      </View>
+      {Header}
+      <ScoreboardBanner />
 
-      {/* Card Stack */}
-      <View style={styles.cardContainer}>
-        <Animated.View
-          {...panResponder.panHandlers}
-          style={[styles.card, {
-            transform: [{ translateX: position.x }, { translateY: position.y }, { rotate }],
-          }]}
-        >
-          {/* Photo */}
-          <Image source={{ uri: currentProfile.photos[currentPhotoIndex] || "" }} style={styles.cardImage} />
-          <Pressable style={styles.photoTapLeft} onPress={() => handlePhotoTap("left")} />
-          <Pressable style={styles.photoTapRight} onPress={() => handlePhotoTap("right")} />
-
-          {/* Photo indicators */}
-          {currentProfile.photos.length > 1 && (
-            <View style={styles.photoIndicators}>
-              {currentProfile.photos.map((_, i) => (
-                <View key={i} style={[styles.indicator, i === currentPhotoIndex && styles.indicatorActive]} />
-              ))}
+      <FlatList
+        data={profiles}
+        keyExtractor={(item) => item.uid}
+        renderItem={({ item }) => (
+          <RivalRow
+            profile={item}
+            userSide={userSide}
+            onChallenge={handleChallenge}
+            onOpen={openSheet}
+          />
+        )}
+        contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 }}
+        removeClippedSubviews
+        windowSize={5}
+        initialNumToRender={8}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={accentColor(userSide)}
+          />
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyList}>
+            <View style={styles.emptyIcon}>
+              <FontAwesome
+                name="search"
+                size={40}
+                color={accentColor(userSide)}
+              />
             </View>
-          )}
-
-          {/* Challenge stamps */}
-          <Animated.View style={[styles.stampContainer, styles.challengeStamp, { opacity: challengeOpacity }]}>
-            <Text style={[styles.stampText, { color: accentColor(userSide) }]}>⚔</Text>
-          </Animated.View>
-          <Animated.View style={[styles.stampContainer, styles.passStamp, { opacity: passOpacity }]}>
-            <Text style={[styles.stampText, { color: "#EF4444" }]}>PASS</Text>
-          </Animated.View>
-
-          {/* Info overlay on photo */}
-          <View style={styles.cardOverlay}>
-            <View style={styles.cardInfoRow}>
-              <Text style={styles.cardName}>{currentProfile.name}.</Text>
-              <View style={[styles.sideBadge, { backgroundColor: rivalSideColor }]}>
-                <Text style={styles.sideBadgeText}>{rivalSideName}</Text>
-              </View>
-            </View>
-            <Text style={styles.cardMeta}>
-              {currentProfile.major} · {currentProfile.gradYear === "Graduate" ? "Graduate" : `Class of ${currentProfile.gradYear}`}
+            <Text style={styles.emptyTitle}>No More Rivals</Text>
+            <Text style={styles.emptySubtitle}>
+              You've seen everyone for now.{"\n"}Check back later!
             </Text>
-          </View>
-
-          {/* More options */}
-          <Pressable style={styles.moreButton} onPress={() => setShowOptions(true)}>
-            <FontAwesome name="ellipsis-h" size={18} color="rgba(255,255,255,0.7)" />
-          </Pressable>
-
-          {/* Bio + Challenge button (below photo area, inside card) */}
-          <View style={styles.cardBottom}>
-            {currentProfile.bio ? (
-              <Text style={styles.cardBio} numberOfLines={2}>
-                "{currentProfile.bio}"
-              </Text>
-            ) : null}
-
-            {/* ⚔ Challenge — the primary action, full-width on card */}
-            <Pressable style={styles.challengeButton} onPress={handleChallengeButtonTap}>
-              <Text style={styles.challengeButtonText}>⚔ Challenge</Text>
+            <Pressable
+              style={styles.refreshBtn}
+              onPress={() => loadData("refresh")}
+            >
+              <Text style={styles.refreshText}>Refresh</Text>
             </Pressable>
           </View>
-        </Animated.View>
-      </View>
+        }
+      />
 
-      {/* Dot indicators below card */}
-      {currentProfile.photos.length > 1 && (
-        <View style={styles.dotsBelow}>
-          {currentProfile.photos.map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.dotBelow,
-                { backgroundColor: i === currentPhotoIndex ? accentColor(userSide) : "rgba(255,255,255,0.25)" },
-              ]}
-            />
-          ))}
-        </View>
-      )}
-
-      {/* Modals */}
-      <MoreOptionsMenu visible={showOptions} onClose={() => setShowOptions(false)} onBlock={() => setShowBlockModal(true)} onReport={() => setShowReportModal(true)} />
-      <BlockModal visible={showBlockModal} onClose={() => setShowBlockModal(false)} onBlock={handleBlock} userName={currentProfile?.name || ""} loading={blockLoading} />
-      <ReportModal visible={showReportModal} onClose={() => setShowReportModal(false)} onSubmit={handleReport} userName={currentProfile?.name || ""} loading={reportLoading} />
+      {Overlays}
     </View>
   );
 }
@@ -419,9 +554,13 @@ export default function DuelsScreen() {
 const createStyles = (_s: string) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: "#0F172A" },
-    centered: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 40 },
+    centered: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: 40,
+    },
 
-    // ── Header ───────────────────────────────────────────────
     header: {
       flexDirection: "row",
       alignItems: "center",
@@ -431,100 +570,57 @@ const createStyles = (_s: string) =>
     },
     headerLeft: { flexDirection: "row", alignItems: "baseline", gap: 10 },
     headerTitle: { fontSize: 28, fontWeight: "800", color: "#fff" },
-    headerCounter: { fontSize: 15, fontWeight: "600", color: accentColor(_s) },
+    headerCounter: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: accentColor(_s),
+    },
     bellButton: {
-      width: 36, height: 36, borderRadius: 18,
-      justifyContent: "center", alignItems: "center",
-    },
-
-    // ── Card ─────────────────────────────────────────────────
-    cardContainer: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
-    card: {
-      width: width - 32,
-      maxHeight: height * 0.68,
-      borderRadius: 20,
-      overflow: "hidden",
-      backgroundColor: "#1E293B",
-    },
-    cardImage: { width: "100%", height: "70%", backgroundColor: "#334155" },
-    photoTapLeft: { position: "absolute", left: 0, top: 0, width: "40%", height: "60%" },
-    photoTapRight: { position: "absolute", right: 0, top: 0, width: "40%", height: "60%" },
-
-    // Photo indicators on top of photo
-    photoIndicators: {
-      position: "absolute", top: 12, left: 16, right: 16,
-      flexDirection: "row", gap: 4,
-    },
-    indicator: { flex: 1, height: 3, backgroundColor: "rgba(255,255,255,0.3)", borderRadius: 2 },
-    indicatorActive: { backgroundColor: "#fff" },
-
-    // Challenge stamps
-    stampContainer: { position: "absolute", top: 50, padding: 10, borderWidth: 3, borderRadius: 10 },
-    challengeStamp: { left: 20, borderColor: accentColor(_s), transform: [{ rotate: "-15deg" }] },
-    passStamp: { right: 20, borderColor: "#EF4444", transform: [{ rotate: "15deg" }] },
-    stampText: { fontSize: 32, fontWeight: "900", letterSpacing: 3 },
-
-    // Info overlay on bottom of photo
-    cardOverlay: {
-      position: "absolute", left: 0, right: 0,
-      bottom: "30%", // sits above the cardBottom section
-      padding: 20, paddingTop: 50,
-      backgroundColor: "rgba(0,0,0,0.5)",
-    },
-    cardInfoRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 },
-    cardName: { fontSize: 26, fontWeight: "800", color: "#fff" },
-    sideBadge: {
-      paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
-    },
-    sideBadgeText: { fontSize: 12, fontWeight: "800", color: "#fff", letterSpacing: 1 },
-    cardMeta: { fontSize: 14, color: "rgba(255,255,255,0.7)" },
-
-    // Bottom section of card (bio + challenge button)
-    cardBottom: {
-      paddingHorizontal: 20, paddingVertical: 16,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
       justifyContent: "center",
-    },
-    cardBio: {
-      fontSize: 14, color: "rgba(255,255,255,0.45)", lineHeight: 20,
-      marginBottom: 14, fontStyle: "italic",
-    },
-    challengeButton: {
-      backgroundColor: accentColor(_s),
-      paddingVertical: 14,
-      borderRadius: 14,
       alignItems: "center",
     },
-    challengeButtonText: {
-      fontSize: 17, fontWeight: "800", color: "#fff", letterSpacing: 0.5,
-    },
 
-    // More options
-    moreButton: {
-      position: "absolute", top: 16, right: 16,
-      width: 36, height: 36, borderRadius: 18,
-      backgroundColor: "rgba(0,0,0,0.4)",
-      justifyContent: "center", alignItems: "center",
+    emptyList: {
+      paddingVertical: 60,
+      alignItems: "center",
+      paddingHorizontal: 40,
     },
-
-    // Dots below card
-    dotsBelow: {
-      flexDirection: "row", justifyContent: "center", gap: 6,
-      paddingVertical: 12,
-    },
-    dotBelow: { width: 8, height: 8, borderRadius: 4 },
-
-    // ── Empty states ─────────────────────────────────────────
     emptyIcon: {
-      width: 80, height: 80, borderRadius: 40,
+      width: 80,
+      height: 80,
+      borderRadius: 40,
       backgroundColor: accentBg(_s, 0.1),
-      justifyContent: "center", alignItems: "center", marginBottom: 20,
+      justifyContent: "center",
+      alignItems: "center",
+      marginBottom: 20,
     },
-    emptyTitle: { fontSize: 22, fontWeight: "700", color: "#fff", marginBottom: 8 },
-    emptySubtitle: { fontSize: 15, color: "rgba(255,255,255,0.4)", textAlign: "center", lineHeight: 22 },
+    emptyTitle: {
+      fontSize: 22,
+      fontWeight: "700",
+      color: "#fff",
+      marginBottom: 8,
+    },
+    emptySubtitle: {
+      fontSize: 15,
+      color: "rgba(255,255,255,0.4)",
+      textAlign: "center",
+      lineHeight: 22,
+    },
     refreshBtn: {
-      marginTop: 24, paddingVertical: 12, paddingHorizontal: 28,
-      backgroundColor: accentBg(_s, 0.1), borderRadius: 12,
-      borderWidth: 1, borderColor: accentBg(_s, 0.2),
+      marginTop: 24,
+      paddingVertical: 12,
+      paddingHorizontal: 28,
+      backgroundColor: accentBg(_s, 0.1),
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: accentBg(_s, 0.2),
     },
-    refreshText: { fontSize: 16, fontWeight: "600", color: accentColor(_s) },
+    refreshText: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: accentColor(_s),
+    },
   });
