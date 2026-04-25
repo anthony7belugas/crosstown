@@ -29,7 +29,7 @@ const PrivacyPolicyScreen = () => {
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
-        <Text style={styles.lastUpdated}>Last Updated: April 10, 2026</Text>
+        <Text style={styles.lastUpdated}>Last Updated: April 24, 2026</Text>
 
         <Text style={styles.intro}>
           At {COMPANY_NAME}, we are committed to protecting your privacy. This Privacy Policy explains how we collect, use, share, and protect your personal information when you use the {APP_NAME} app ("Service").
@@ -45,12 +45,11 @@ const PrivacyPolicyScreen = () => {
         <Text style={styles.bulletText}>• Your school affiliation (USC or UCLA)</Text>
         <Text style={styles.bulletText}>• Photos you upload to your profile</Text>
         <Text style={styles.bulletText}>• Academic information (major, graduation year)</Text>
-        <Text style={styles.bulletText}>• Profile bio (optional, user-provided)</Text>
         <Text style={styles.bulletText}>• Messages sent through the app</Text>
 
         <Text style={styles.subsectionTitle}>Automatically Collected Information:</Text>
         <Text style={styles.bulletText}>• Device information (type, operating system)</Text>
-        <Text style={styles.bulletText}>• Usage data (challenge activity, features used, interactions)</Text>
+        <Text style={styles.bulletText}>• Usage data (challenge activity, showdowns played, features used)</Text>
         <Text style={styles.bulletText}>• Log data (IP address, access times)</Text>
         <Text style={styles.bulletText}>• Push notification tokens (if enabled)</Text>
 
@@ -58,12 +57,13 @@ const PrivacyPolicyScreen = () => {
         <Text style={styles.text}>We use your information to:</Text>
         <Text style={styles.bulletText}>• Provide and operate the Service</Text>
         <Text style={styles.bulletText}>• Create and maintain your account</Text>
-        <Text style={styles.bulletText}>• Show your profile to users from the rival school</Text>
-        <Text style={styles.bulletText}>• Facilitate connections and enable messaging</Text>
-        <Text style={styles.bulletText}>• Enforce challenge limits and track connection activity</Text>
-        <Text style={styles.bulletText}>• Send push notifications about connections and messages</Text>
+        <Text style={styles.bulletText}>• Show your profile to verified users from the rival school</Text>
+        <Text style={styles.bulletText}>• Enable challenges, showdowns, and in-showdown messaging</Text>
+        <Text style={styles.bulletText}>• Enforce challenge limits and track gameplay activity</Text>
+        <Text style={styles.bulletText}>• Maintain the live USC vs UCLA scoreboard and Top Players leaderboard</Text>
+        <Text style={styles.bulletText}>• Send push notifications about challenges, showdowns, messages, and scoreboard activity</Text>
         <Text style={styles.bulletText}>• Send you service-related communications, including updates, surveys, and requests for feedback</Text>
-        <Text style={styles.bulletText}>• Improve and personalize your experience</Text>
+        <Text style={styles.bulletText}>• Improve the Service</Text>
         <Text style={styles.bulletText}>• Prevent fraud, abuse, and safety issues</Text>
         <Text style={styles.bulletText}>• Enforce our Terms and Conditions</Text>
         <Text style={styles.bulletText}>• Comply with legal obligations</Text>
@@ -75,7 +75,7 @@ const PrivacyPolicyScreen = () => {
           Your profile information (name, photos, major, graduation year, school affiliation) is visible to verified users from the opposing school. You will only be shown to — and see — users from the rival university.
         </Text>
         <Text style={styles.text}>
-          Direct messages are only visible to you and the person you connected with.
+          Direct messages within an active showdown are only visible to you and the other player in that showdown.
         </Text>
 
         <Text style={styles.subsectionTitle}>We Do Not Sell Your Data:</Text>
@@ -98,10 +98,10 @@ const PrivacyPolicyScreen = () => {
 
         <Text style={styles.sectionTitle}>5. Push Notifications</Text>
         <Text style={styles.text}>
-          If you enable push notifications, we collect your device's push token to send you alerts about new connections, messages, and app activity.
+          If you enable push notifications, we collect your device's push token to send you alerts about new challenges, showdowns, messages, and scoreboard activity.
         </Text>
         <Text style={styles.text}>
-          You can control notification preferences in your device settings or within the app at any time.
+          You can manage notification settings on your device or within the app at any time.
         </Text>
 
         <Text style={styles.sectionTitle}>6. Data Security</Text>
@@ -120,7 +120,7 @@ const PrivacyPolicyScreen = () => {
         <Text style={styles.subsectionTitle}>When You Delete Your Account:</Text>
         <Text style={styles.bulletText}>• Your profile is immediately hidden from all other users</Text>
         <Text style={styles.bulletText}>• Your photos are removed</Text>
-        <Text style={styles.bulletText}>• Your connection history and messages are hidden</Text>
+        <Text style={styles.bulletText}>• Your showdown history and messages are hidden</Text>
         <Text style={styles.bulletText}>• Your push notification token is cleared</Text>
         <Text style={styles.bulletText}>• You are signed out and cannot log back in</Text>
         <Text style={styles.bulletText}>• This action is permanent and cannot be undone</Text>
@@ -136,7 +136,7 @@ const PrivacyPolicyScreen = () => {
         <Text style={styles.bulletText}>• Correct inaccurate information through profile settings</Text>
         <Text style={styles.bulletText}>• Delete your account (Settings → Delete Account)</Text>
         <Text style={styles.bulletText}>• Export your data (contact support)</Text>
-        <Text style={styles.bulletText}>• Control push notification preferences</Text>
+        <Text style={styles.bulletText}>• Manage push notification settings</Text>
         <Text style={styles.bulletText}>• Block and report other users</Text>
 
         <Text style={styles.sectionTitle}>9. Children's Privacy</Text>

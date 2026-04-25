@@ -29,7 +29,7 @@ const TermsAndConditionsScreen = () => {
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
-        <Text style={styles.lastUpdated}>Last Updated: April 10, 2026</Text>
+        <Text style={styles.lastUpdated}>Last Updated: April 24, 2026</Text>
 
         <Text style={styles.intro}>
           Terms and Conditions for the {APP_NAME} App — by {COMPANY_NAME}.{'\n'}
@@ -43,12 +43,12 @@ const TermsAndConditionsScreen = () => {
 
         <Text style={styles.sectionTitle}>2. About {APP_NAME}</Text>
         <Text style={styles.text}>
-          {APP_NAME} is a social gaming and connection platform that connects current students from USC and UCLA ("the Crosstown rivalry"). The Service allows you to:
+          {APP_NAME} is a between-school rivalry app for verified students of the University of Southern California (USC) and the University of California, Los Angeles (UCLA) — "the Crosstown rivalry." Through the Service, you can:
         </Text>
-        <Text style={styles.bulletText}>• Create a profile verified to your university email</Text>
-        <Text style={styles.bulletText}>• Challenge and connect with students from the opposing school</Text>
-        <Text style={styles.bulletText}>• Message accepted rivals</Text>
-        <Text style={styles.bulletText}>• Manage your player profile and preferences</Text>
+        <Text style={styles.bulletText}>• Create a player profile verified to your university (.edu) email</Text>
+        <Text style={styles.bulletText}>• Challenge students from the opposing school to showdowns of Cup Pong or Word Hunt</Text>
+        <Text style={styles.bulletText}>• Message rivals within active showdowns</Text>
+        <Text style={styles.bulletText}>• Compete on the live USC vs UCLA scoreboard with weekly resets and a Top Players leaderboard</Text>
 
         <Text style={styles.sectionTitle}>3. Eligibility</Text>
         <Text style={styles.text}>
@@ -110,12 +110,12 @@ const TermsAndConditionsScreen = () => {
 
         <Text style={styles.sectionTitle}>8. Challenge Limits</Text>
         <Text style={styles.text}>
-          {APP_NAME} enforces daily challenge limits to promote quality connections and prevent spam behavior. Challenge counts reset on a 24-hour cycle. Attempting to circumvent challenge limits through any means is a violation of these Terms and may result in account suspension.
+          {APP_NAME} enforces daily challenge limits to promote fair play and prevent spam. Challenge counts reset on a 24-hour cycle. Attempting to circumvent challenge limits through any means is a violation of these Terms and may result in account suspension.
         </Text>
 
-        <Text style={styles.sectionTitle}>9. Connections & Messaging</Text>
+        <Text style={styles.sectionTitle}>9. Showdowns & Messaging</Text>
         <Text style={styles.text}>
-          Messaging is only available between mutually connected users (both users have accepted challenges from each other). You agree not to use messaging to harass, solicit, or spam other users. Connections may be removed at any time by either party, which will remove the conversation.
+          Messaging is only available within an active showdown — a thread that opens automatically once a player accepts another player's challenge. You agree not to use messaging to harass, solicit, or spam other users. Either party may block the other at any time, which will end further messaging.
         </Text>
 
         <Text style={styles.sectionTitle}>10. Blocking and Reporting</Text>
@@ -140,22 +140,22 @@ const TermsAndConditionsScreen = () => {
         <Text style={styles.bulletText}>• Non-consensual sharing of intimate images</Text>
         <Text style={styles.bulletText}>• Explicit sexual content</Text>
 
-        <Text style={styles.sectionTitle}>12. Safety and In-Person Meetings</Text>
+        <Text style={styles.sectionTitle}>12. Off-Platform Safety</Text>
         <Text style={styles.text}>
-          {APP_NAME} connects you with real people. If you choose to meet a connection in person, we strongly recommend:
+          {APP_NAME} puts you in contact with real verified students from your rival school. While most interactions happen in-app through showdowns and messaging, conversations between users sometimes continue off the platform. If you choose to interact with another user outside of {APP_NAME} — through other apps, by phone, or in person — we strongly recommend:
         </Text>
-        <Text style={styles.bulletText}>• Meeting in a public place, especially for the first time</Text>
+        <Text style={styles.bulletText}>• Meeting only in public places, especially for the first time</Text>
         <Text style={styles.bulletText}>• Telling a friend where you're going and who you're meeting</Text>
-        <Text style={styles.bulletText}>• Never sharing financial information, passwords, or home addresses early on</Text>
-        <Text style={styles.bulletText}>• Trusting your instincts and leaving if you feel uncomfortable</Text>
+        <Text style={styles.bulletText}>• Never sharing financial information, passwords, or home addresses</Text>
+        <Text style={styles.bulletText}>• Trusting your instincts and leaving any situation in which you feel uncomfortable</Text>
         <Text style={styles.bulletText}>• Reporting any concerning offline behavior to us and, where appropriate, to law enforcement</Text>
         <Text style={styles.text}>
-          You acknowledge that meeting people you've connected with online carries inherent risks, and you assume full responsibility for your interactions both online and offline.
+          You acknowledge that interactions with other users carry inherent risks both online and offline, and you assume full responsibility for your interactions inside and outside the Service.
         </Text>
 
         <Text style={styles.sectionTitle}>13. Push Notifications</Text>
         <Text style={styles.text}>
-          If you enable push notifications, you may receive alerts about new connections, messages, and app activity. You can manage notification preferences in your device settings or within the app at any time.
+          If you enable push notifications, you may receive alerts about new challenges, showdowns, messages, and scoreboard activity. You can manage notification settings on your device or within the app at any time.
         </Text>
 
         <Text style={styles.sectionTitle}>14. Intellectual Property</Text>
@@ -191,7 +191,7 @@ const TermsAndConditionsScreen = () => {
         <Text style={styles.text}>When your account is terminated or deleted:</Text>
         <Text style={styles.bulletText}>• Your profile is immediately hidden from all other users</Text>
         <Text style={styles.bulletText}>• Your photos are removed</Text>
-        <Text style={styles.bulletText}>• Your connections and messages are hidden</Text>
+        <Text style={styles.bulletText}>• Your showdowns and messages are hidden</Text>
         <Text style={styles.bulletText}>• This action is permanent and cannot be undone</Text>
 
         <Text style={styles.sectionTitle}>19. Changes to Terms</Text>
