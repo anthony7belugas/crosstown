@@ -238,7 +238,7 @@ export default function GameResultScreen() {
               <Text style={styles.gameEmoji}>🔤</Text>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.gameTitle, { color: TEXT_PRIMARY }]}>Word Hunt</Text>
-                <Text style={styles.gameDesc}>Find the most words in 90s</Text>
+                <Text style={styles.gameDesc}>Find the most words in 60s</Text>
               </View>
             </Pressable>
             <Pressable onPress={() => setShowRematch(false)}>

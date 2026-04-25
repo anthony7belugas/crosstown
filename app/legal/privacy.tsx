@@ -11,7 +11,7 @@ import {
   TEXT_SECONDARY,
 } from '../../utils/colors';
 
-const SUPPORT_EMAIL = "support@crosstownapp.com";
+const SUPPORT_EMAIL = "support@allmybesties.com";
 const APP_NAME = "CrossTown";
 const COMPANY_NAME = "Besties, Inc.";
 
@@ -64,7 +64,8 @@ const PrivacyPolicyScreen = () => {
         <Text style={styles.bulletText}>• Send push notifications about challenges, showdowns, messages, and scoreboard activity</Text>
         <Text style={styles.bulletText}>• Send you service-related communications, including updates, surveys, and requests for feedback</Text>
         <Text style={styles.bulletText}>• Improve the Service</Text>
-        <Text style={styles.bulletText}>• Prevent fraud, abuse, and safety issues</Text>
+        <Text style={styles.bulletText}>• Detect, investigate, and prevent fraud, abuse, harassment, and other safety issues</Text>
+        <Text style={styles.bulletText}>• Review reports of objectionable content or abusive users and take enforcement action under our Terms and Community Guidelines</Text>
         <Text style={styles.bulletText}>• Enforce our Terms and Conditions</Text>
         <Text style={styles.bulletText}>• Comply with legal obligations</Text>
 
@@ -193,7 +194,11 @@ const PrivacyPolicyScreen = () => {
 
         <View style={styles.linkContainer}>
           <Link href="/legal/terms" style={styles.link} replace>
-            <Text style={styles.linkText}>View Terms & Conditions</Text>
+            <Text style={styles.linkText}>Terms of Service</Text>
+          </Link>
+          <Text style={styles.linkSeparator}>·</Text>
+          <Link href="/legal/guidelines" style={styles.link} replace>
+            <Text style={styles.linkText}>Community Guidelines</Text>
           </Link>
         </View>
       </ScrollView>
@@ -295,15 +300,22 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   linkContainer: {
-    marginBottom: 30,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 30,
   },
   link: {},
   linkText: {
-    fontSize: 16,
+    fontSize: 15,
     color: NEUTRAL_ACCENT,
     textDecorationLine: 'underline',
     fontWeight: '600',
+  },
+  linkSeparator: {
+    fontSize: 15,
+    color: TEXT_SECONDARY,
+    marginHorizontal: 12,
   },
 });
 

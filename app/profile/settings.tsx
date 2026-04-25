@@ -326,6 +326,18 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <Pressable
             style={styles.settingRow}
+            onPress={() => router.push("/legal/guidelines" as any)}
+          >
+            <View style={styles.settingLeft}>
+              <FontAwesome name="shield" size={16} color="rgba(255,255,255,0.5)" />
+              <Text style={styles.settingText}>Community Guidelines</Text>
+            </View>
+            <FontAwesome name="chevron-right" size={14} color="rgba(255,255,255,0.2)" />
+          </Pressable>
+          <View style={styles.divider} />
+
+          <Pressable
+            style={styles.settingRow}
             onPress={() => router.push("/profile/blocked" as any)}
           >
             <View style={styles.settingLeft}>

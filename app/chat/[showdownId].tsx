@@ -386,7 +386,7 @@ export default function ChatDetailScreen() {
               <Text style={styles.gameOptionEmoji}>🔤</Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.gameOptionTitle}>Word Hunt</Text>
-                <Text style={styles.gameOptionDesc}>Find the most words in 90 seconds</Text>
+                <Text style={styles.gameOptionDesc}>Find the most words in 60 seconds</Text>
               </View>
               <FontAwesome name="chevron-right" size={14} color={TEXT_SECONDARY} />
             </Pressable>

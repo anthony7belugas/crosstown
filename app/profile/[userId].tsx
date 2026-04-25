@@ -311,7 +311,7 @@ export default function UserProfilePage() {
                 onPress={() => router.push(`/chat/${showdownId}` as any)}
               >
                 <FontAwesome name="comment" size={16} color="#fff" />
-                <Text style={styles.actionBtnText}>Message</Text>
+                <Text style={styles.actionBtnText}>Message Rival</Text>
               </Pressable>
             ) : null}
           </View>

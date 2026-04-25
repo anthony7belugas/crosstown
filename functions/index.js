@@ -2,7 +2,7 @@
 //
 // CROSSTOWN FIREBASE CLOUD FUNCTIONS V2
 // - Push Notifications (new showdown, new message, new challenge, inactive nudge)
-// - Content Moderation (banned word filter on bios + messages)
+// - Content Moderation (banned word filter on messages)
 // - Daily cleanup (expired passes)
 //
 // To deploy:
@@ -281,28 +281,6 @@ exports.moderateMessage = onDocumentCreated(
     return null;
   }
 );
-
-// ============================================
-// CONTENT MODERATION: Check profile bios
-// ============================================
-
-exports.moderateBio = onDocumentCreated("users/{userId}", async (event) => {
-  const snapshot = event.data;
-  if (!snapshot) return null;
-
-  const userData = snapshot.data();
-
-  if (userData.bio && containsBannedWords(userData.bio)) {
-    console.log("Banned content in bio for user:", event.params.userId);
-
-    await snapshot.ref.update({
-      bio: "",
-      bioFlagged: true,
-    });
-  }
-
-  return null;
-});
 
 // ============================================
 // SCHEDULED: Inactive User Nudge (every day at 6pm PT)
@@ -721,7 +699,7 @@ exports.onScoreboardGapAlert = onDocumentUpdated("scoreboard/tallies", async (ev
       if (prefs.scoreboardAlerts === false) continue;
       messages.push({
         to: token, sound: "default",
-        title: `${closingSchool} is closing the gap 🔥`,
+        title: `${closingSchool} is closing the gap ${closingSchool === "USC" ? "🔴" : "🔵"}`,
         body: `Defend your lead — challenge a ${closingSchool} student now`,
         data: { type: "gap_alert", screen: "duels" },
       });

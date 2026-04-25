@@ -142,7 +142,7 @@ export default function RivalsScreen() {
       orderBy("createdAt", "desc"), limit(1)
     );
     const unsub = onSnapshot(messagesQuery, (messagesSnap) => {
-      let lastMessage = "Say something to your rival 🔥";
+      let lastMessage = "Talk trash to your rival";
       let lastMessageAt = null;
       if (!messagesSnap.empty) {
         const msg = messagesSnap.docs[0].data();

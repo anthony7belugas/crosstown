@@ -266,7 +266,7 @@ export default function ProfileScreen() {
               style={[styles.emptyStateButton, { backgroundColor: accent }]}
               onPress={() => router.push("/(tabs)/duels" as any)}
             >
-              <Text style={styles.emptyStateButtonText}>Find a rival →</Text>
+              <Text style={styles.emptyStateButtonText}>Challenge a rival →</Text>
             </Pressable>
           </View>
         ) : (

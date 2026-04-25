@@ -295,7 +295,6 @@ const createStyles = (side: string) =>
       fontSize: 16,
       color: "#fff",
     },
-    bioInput: { height: 100, textAlignVertical: "top" },
     charCount: {
       fontSize: 12,
       color: "rgba(255,255,255,0.2)",

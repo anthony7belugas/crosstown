@@ -1,5 +1,5 @@
 // app/game/word-hunt/[gameId].tsx
-// Word Hunt — 4x4 grid, trace adjacent letters, 90s timer.
+// Word Hunt — 4x4 grid, trace adjacent letters, 60s timer.
 // Fixes: server-side turn timer, board hidden until Start, reliable auto-submit.
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -134,7 +134,7 @@ export default function WordHuntScreen() {
       [`turnStartedAt.${myUid}`]: serverTimestamp(),
     });
 
-    // Start local timer at full 90s — the interval tick will sync below
+    // Start local timer at full 60s — the interval tick will sync below
     beginTimer(TURN_SECONDS);
   };
 

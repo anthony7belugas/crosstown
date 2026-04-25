@@ -11,7 +11,7 @@ import {
   TEXT_SECONDARY,
 } from '../../utils/colors';
 
-const SUPPORT_EMAIL = "support@crosstownapp.com";
+const SUPPORT_EMAIL = "support@allmybesties.com";
 const APP_NAME = "CrossTown";
 const COMPANY_NAME = "Besties, Inc.";
 
@@ -70,22 +70,29 @@ const TermsAndConditionsScreen = () => {
           You may only create one account. Creating multiple accounts, fake accounts, or accounts using another person's email is prohibited and will result in immediate termination.
         </Text>
 
-        <Text style={styles.sectionTitle}>5. User Conduct</Text>
+        <Text style={styles.sectionTitle}>5. User Conduct & Community Guidelines</Text>
         <Text style={styles.text}>
-          You agree to use the Service in a lawful and respectful manner. The following behaviors are strictly prohibited:
+          {APP_NAME} is built around the USC vs UCLA rivalry. Trash talk, competitive banter, and good-natured roasting between the two schools are part of the experience and are welcome on the Service.
         </Text>
-        <Text style={styles.bulletText}>• Harassment, bullying, or threatening other users</Text>
-        <Text style={styles.bulletText}>• Hate speech, discrimination, or content targeting any group</Text>
-        <Text style={styles.bulletText}>• Sharing explicit, sexual, or inappropriate content</Text>
-        <Text style={styles.bulletText}>• Impersonating another person or providing false information</Text>
-        <Text style={styles.bulletText}>• Soliciting money or conducting unauthorized commercial activity</Text>
-        <Text style={styles.bulletText}>• Sharing another person's personal information without consent</Text>
+        <Text style={styles.text}>
+          Behavior that crosses the line from rivalry into abuse is strictly prohibited. The following will result in content removal, account suspension, or permanent ban:
+        </Text>
+        <Text style={styles.bulletText}>• Harassment, bullying, stalking, or sustained targeting of a specific user</Text>
+        <Text style={styles.bulletText}>• Hate speech, slurs, or content targeting people based on race, religion, gender, sexual orientation, ethnicity, national origin, or disability</Text>
+        <Text style={styles.bulletText}>• Threats of violence or physical harm</Text>
+        <Text style={styles.bulletText}>• Self-harm or suicide content directed at another user</Text>
+        <Text style={styles.bulletText}>• Sexual, nude, suggestive, or sexually explicit content</Text>
+        <Text style={styles.bulletText}>• Sharing another person's private information (phone numbers, addresses, schedules, family details) without consent</Text>
+        <Text style={styles.bulletText}>• Impersonating another person or providing false identity information</Text>
+        <Text style={styles.bulletText}>• Soliciting money, conducting commercial activity, or scams</Text>
         <Text style={styles.bulletText}>• Spamming, flooding, or otherwise disrupting the Service</Text>
         <Text style={styles.bulletText}>• Using the Service for any illegal purpose</Text>
-        <Text style={styles.bulletText}>• Creating multiple or fake accounts</Text>
-        <Text style={styles.bulletText}>• Stalking or obsessively contacting other users</Text>
-        <Text style={styles.bulletText}>• Attempting to circumvent challenge limits or other Service restrictions</Text>
+        <Text style={styles.bulletText}>• Creating multiple, fake, or duplicate accounts</Text>
+        <Text style={styles.bulletText}>• Attempting to circumvent challenge limits, blocks, bans, or other Service restrictions</Text>
         <Text style={styles.bulletText}>• Using bots, scripts, or automated tools to interact with the Service</Text>
+        <Text style={styles.text}>
+          For a plain-language explanation of what's welcome and what crosses the line, see the {APP_NAME} Community Guidelines (Settings → Privacy & Safety → Community Guidelines). The Community Guidelines are part of these Terms; violating them violates these Terms.
+        </Text>
 
         <Text style={styles.sectionTitle}>6. Content</Text>
         <Text style={styles.text}>
@@ -235,7 +242,11 @@ const TermsAndConditionsScreen = () => {
 
         <View style={styles.linkContainer}>
           <Link href="/legal/privacy" style={styles.link} replace>
-            <Text style={styles.linkText}>View Privacy Policy</Text>
+            <Text style={styles.linkText}>Privacy Policy</Text>
+          </Link>
+          <Text style={styles.linkSeparator}>·</Text>
+          <Link href="/legal/guidelines" style={styles.link} replace>
+            <Text style={styles.linkText}>Community Guidelines</Text>
           </Link>
         </View>
       </ScrollView>
@@ -337,15 +348,22 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   linkContainer: {
-    marginBottom: 30,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 30,
   },
   link: {},
   linkText: {
-    fontSize: 16,
+    fontSize: 15,
     color: NEUTRAL_ACCENT,
     textDecorationLine: 'underline',
     fontWeight: '600',
+  },
+  linkSeparator: {
+    fontSize: 15,
+    color: TEXT_SECONDARY,
+    marginHorizontal: 12,
   },
 });
 

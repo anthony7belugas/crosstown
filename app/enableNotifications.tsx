@@ -95,7 +95,7 @@ export default function EnableNotificationsScreen() {
         <View style={styles.previewList}>
           <View style={styles.previewItem}>
             <Text style={styles.previewEmoji}>⚔️</Text>
-            <Text style={styles.previewText}>"A Bruin just challenged you"</Text>
+            <Text style={styles.previewText}>{`"A ${side === "usc" ? "Bruin" : "Trojan"} just challenged you"`}</Text>
           </View>
           <View style={styles.previewItem}>
             <Text style={styles.previewEmoji}>🏆</Text>

@@ -1,6 +1,6 @@
 // app/profile/photos.tsx
 // Photo management — 2x2 grid, add/remove/set-as-main.
-// Min 1 photo, max 4. Slot 0 = main photo rivals see in Duels.
+// Min 1 photo, max 2. Slot 0 = main photo rivals see in Duels.
 // Changes save automatically as you add/remove/reorder (no separate Save button).
 import { FontAwesome } from "@expo/vector-icons";
 import * as ImageManipulator from "expo-image-manipulator";

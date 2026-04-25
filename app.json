@@ -25,10 +25,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.bestiesinc.crosstown",
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "package": "com.bestiesinc.crosstown"
     },
     "plugins": [
       "expo-router",
@@ -36,7 +33,8 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": false
+          "cameraPermission": false,
+          "photosPermission": "CrossTown needs access to your photo library so you can pick photos for your player profile."
         }
       ],
       [
