@@ -1,6 +1,9 @@
 // utils/wordList.ts
 // Word Hunt dictionary — ~25K English words, 3–8 letters
 // Source: wamerican dictionary, filtered to lowercase alpha 3-8 chars
+// Plus: school-name extensions (TROJAN/BRUIN), banned-vocabulary filter
+//       (dating-coded words removed), and bonus-word multiplier set
+//       (rivalry-themed words score 2× when found).
 
 const RAW = `
 AARDVARK,ABACI,ABACK,ABACUS,ABACUSES,ABANDON,ABANDONS,ABATE,ABATED,ABATES,ABATING,ABBEY,ABBEYS,
@@ -1931,14 +1934,59 @@ ZINCS,ZIP,ZIPPED,ZIPPER,ZIPPERED,ZIPPERS,ZIPPING,ZIPS,ZODIAC,ZODIACS,ZOMBI,ZOMBI
 ZONE,ZONED,ZONES,ZONING,ZOO,ZOOLOGY,ZOOM,ZOOMED,ZOOMING,ZOOMS,ZOOS,ZUCCHINI
 `;
 
+// ─── CrossTown extensions ────────────────────────────────────────────
+// Proper-noun school nicknames added so they're findable on Word Hunt
+// boards as part of the bonus mechanic. wamerican excludes proper nouns
+// by default, so we add these explicitly. Symmetric — both schools.
+const SCHOOL_WORDS = ["TROJAN", "TROJANS", "BRUIN", "BRUINS"];
+
+// Words removed from the dictionary because they appear in the framing
+// doc's banned-vocabulary list. Generic English (LOVE, KISS, DATE) is
+// intentionally kept — only words that read as specifically dating-app-
+// coded are removed. Total: 25 words across 6 categories.
+const BANNED_WORDS = new Set([
+  "DATING", "DATED",
+  "MATCH", "MATCHES", "MATCHED", "MATCHING",
+  "ROMANCE", "ROMANCED", "ROMANCES", "ROMANTIC",
+  "SINGLES", "MUTUAL", "MUTUALLY",
+  "SWIPE", "SWIPED", "SWIPES", "SWIPING",
+  "FLIRT", "FLIRTED", "FLIRTS", "FLIRTING",
+  "HOOKUP", "HOOKUPS",
+]);
+
+// Words that score 2× when found. Curated for rivalry theme + reliable
+// formation on common letter boards. School nicknames included
+// symmetrically (both rare formations); rivalry/competition words are
+// formable on most boards so the mechanic fires regularly.
+export const BONUS_WORDS = new Set([
+  // School identity (rare but possible — 5–6 letter formations)
+  "TROJAN", "TROJANS", "BRUIN", "BRUINS",
+  // Rivalry & competition (formable on most boards)
+  "BEAT", "BEATS", "WIN", "WINS", "DUEL", "DUELS",
+  "GAME", "GAMES", "SCORE", "SCORES",
+  "POINT", "POINTS", "FIGHT", "FIGHTS",
+  "TEAM", "TEAMS", "RIVAL", "RIVALS",
+  "BATTLE", "BATTLES", "CROWN", "CROWNS",
+]);
+
 const WORDS = new Set<string>();
+
+// 1) Add wamerican words, skipping anything in the banned set
 for (const w of RAW.split(",")) {
   const t = w.trim();
-  if (t.length >= 3) WORDS.add(t);
+  if (t.length >= 3 && !BANNED_WORDS.has(t)) WORDS.add(t);
+}
+
+// 2) Add school-name extensions
+for (const w of SCHOOL_WORDS) {
+  WORDS.add(w);
 }
 
 export const isValidWord = (word: string): boolean =>
   WORDS.has(word.toUpperCase());
+
+export const isBonusWord = (word: string): boolean =>
+  BONUS_WORDS.has(word.toUpperCase());
 
 export const WORD_COUNT = WORDS.size;
 export const MIN_WORD_LENGTH = 3;

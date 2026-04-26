@@ -55,6 +55,20 @@ function getTodayString(): string {
   return new Date().toLocaleDateString("en-CA");
 }
 
+/**
+ * ISO week key, e.g. "2026-W17". Mirrors the helper in functions/index.js
+ * so client-side reads of weekly counters use the same week boundary as
+ * the Cloud Function that writes them.
+ */
+function getISOWeekKey(date: Date): string {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNum = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+}
+
 type LoadMode = "initial" | "refresh";
 
 export default function DuelsScreen() {
@@ -181,6 +195,7 @@ export default function DuelsScreen() {
       );
 
       const eligible: RivalCard[] = [];
+      const currentWeek = getISOWeekKey(new Date());
       rivalsSnap.docs.forEach((d) => {
         if (excludedIds.has(d.id)) return;
         const data = d.data();
@@ -193,6 +208,15 @@ export default function DuelsScreen() {
           photos,
           major: data.major || "",
           gradYear: data.gradYear || "",
+          // Player stats — surfaced on RivalProfileSheet.
+          // weeklyWins is only fresh if the stored week key matches the
+          // current week; otherwise treat as zero (the user hasn't won yet
+          // this week, regardless of what last week's number was).
+          wins: data.wins || 0,
+          gamesPlayed: data.gamesPlayed || 0,
+          weeklyWins: data.weeklyWinsWeek === currentWeek ? (data.weeklyWins || 0) : 0,
+          weeklyWinsWeek: data.weeklyWinsWeek,
+          currentRank: data.currentRank ?? null,
         });
       });
 

@@ -26,6 +26,14 @@ export interface RivalCard {
   photos: string[];
   major: string;
   gradYear: string;
+  // Player stats — read from user doc, surfaced on RivalProfileSheet.
+  // All optional so existing callers continue to type-check; the sheet
+  // uses defensive defaults for any missing fields.
+  wins?: number;
+  gamesPlayed?: number;
+  weeklyWins?: number;
+  weeklyWinsWeek?: string;
+  currentRank?: number | null;
 }
 
 interface Props {

@@ -6,7 +6,7 @@ import {
   addDoc, collection, doc, serverTimestamp, updateDoc,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
-import { isValidWord } from "./wordList";
+import { isBonusWord, isValidWord } from "./wordList";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -125,8 +125,11 @@ export const checkCupHit = (
 // ─── Word Hunt Board ─────────────────────────────────────────
 
 // Letter frequencies tuned for good boards
+// J added at frequency 1 so TROJAN is formable (mirrors BRUIN's
+// reliance on B at frequency 2). Q/X/Z still excluded — those four
+// are nightmare letters in Boggle and don't justify the findability hit.
 const VOWELS = "AAAEEEIIOOUU";
-const CONSONANTS = "BBCDDFFGGHHKLLMMNNPPRRRSSSTTTTVWY";
+const CONSONANTS = "BBCDDFFGGHHJKLLMMNNPPRRRSSSTTTTVWY";
 
 /** Count how many valid words can be found on a board using DFS. */
 const countBoardWords = (board: string[]): number => {
@@ -195,10 +198,14 @@ export const isAdjacent = (a: number, b: number): boolean => {
   return Math.abs(rowA - rowB) <= 1 && Math.abs(colA - colB) <= 1 && a !== b;
 };
 
-/** GamePigeon-style scoring: 3=1pt, 4=2pt, 5=4pt, 6=7pt, 7=11pt, 8+=15pt */
+/**
+ * GamePigeon-style scoring: 3=1pt, 4=2pt, 5=4pt, 6=7pt, 7=11pt, 8+=15pt
+ * Bonus words (rivalry-themed — see BONUS_WORDS in wordList.ts) score 2×.
+ */
 export const wordScore = (word: string): number => {
   const table: Record<number, number> = { 3: 1, 4: 2, 5: 4, 6: 7, 7: 11 };
-  return word.length >= 8 ? 15 : (table[word.length] ?? 0);
+  const base = word.length >= 8 ? 15 : (table[word.length] ?? 0);
+  return isBonusWord(word) ? base * 2 : base;
 };
 
 // ─── Firestore Game Creation ──────────────────────────────────

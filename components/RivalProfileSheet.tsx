@@ -35,6 +35,32 @@ import { RivalCard } from "./RivalRow";
 const { height: SH } = Dimensions.get("window");
 const SHEET_HEIGHT = SH * 0.88;
 
+/**
+ * Build the player-stats line shown under major/year on the sheet.
+ * Surfaces three pieces of competitive context (weekly wins, all-time
+ * rank, win-loss record) — all already computed by the onGameUpdated
+ * and recomputeRanks Cloud Functions. Hides clauses that don't apply
+ * (no rank if outside top 100, no weekly clause if zero wins this week).
+ */
+function buildStatsLine(p: RivalCard): string {
+  const games = p.gamesPlayed ?? 0;
+  if (games === 0) return "🏆 New player · No games yet";
+
+  const parts: string[] = [];
+  const weekly = p.weeklyWins ?? 0;
+  if (weekly > 0) {
+    parts.push(`${weekly} ${weekly === 1 ? "win" : "wins"} this week`);
+  }
+  if (p.currentRank) {
+    parts.push(`#${p.currentRank} all-time`);
+  }
+  const wins = p.wins ?? 0;
+  const losses = Math.max(0, games - wins);
+  parts.push(`${wins}-${losses} record`);
+
+  return `🏆 ${parts.join(" · ")}`;
+}
+
 export interface RivalProfileSheetHandle {
   // Runs the slide-down animation, then calls onClose.
   animateClose: (then?: () => void) => void;
@@ -288,6 +314,14 @@ export const RivalProfileSheet = forwardRef<RivalProfileSheetHandle, Props>(
               {metaParts.length > 0 && (
                 <Text style={styles.meta}>{metaParts.join(" · ")}</Text>
               )}
+              <Text
+                style={[styles.statsRow, { color: rivalColor }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+              >
+                {buildStatsLine(profile)}
+              </Text>
             </View>
 
             <View style={styles.actions}>
@@ -433,6 +467,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: TEXT_SECONDARY,
     fontWeight: "500",
+  },
+  statsRow: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+    marginTop: 4,
   },
   actions: {
     flex: 1,

@@ -23,7 +23,6 @@ interface UserData {
   photos: string[];
   major: string;
   gradYear: string;
-  bio: string;
 }
 
 export default function PreviewScreen() {
@@ -47,7 +46,6 @@ export default function PreviewScreen() {
         photos: data.photos || [],
         major: data.major || "",
         gradYear: data.gradYear || "",
-        bio: data.bio || "",
       });
       setLoading(false);
     });

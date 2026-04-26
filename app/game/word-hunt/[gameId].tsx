@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../../firebaseConfig";
 import { Game, isAdjacent, wordScore } from "../../../utils/gameUtils";
-import { isValidWord } from "../../../utils/wordList";
+import { isValidWord, isBonusWord } from "../../../utils/wordList";
 import {
   accentColor, accentBg, rivalColor,
   BG_PRIMARY, BG_SURFACE, TEXT_PRIMARY, TEXT_SECONDARY,
@@ -325,13 +325,14 @@ export default function WordHuntScreen() {
         }
         if (isValidWord(word)) {
           const pts = wordScore(word);
+          const bonus = isBonusWord(word);
           const nw = [...foundWordsRef.current, word];
           foundWordsRef.current = nw;
           setFoundWords(nw);
           const ns = scoreRef.current + pts;
           scoreRef.current = ns;
           setScore(ns);
-          setLastWord({ text: `+${pts} ${word}`, valid: true });
+          setLastWord({ text: `+${pts} ${word}${bonus ? " ⚡" : ""}`, valid: true });
         } else {
           setLastWord({ text: word, valid: false });
         }
@@ -443,11 +444,23 @@ export default function WordHuntScreen() {
             <Text style={styles.waitTitle}>You scored {score || game.scores?.[myUid] || 0} pts 🎯</Text>
             <Text style={styles.waitSub}>Waiting for {opName} to play…</Text>
             <View style={styles.wordTags}>
-              {(foundWords.length > 0 ? foundWords : game.wordsFound?.[myUid] ?? []).slice(0, 10).map((w: string) => (
-                <View key={w} style={[styles.tag, { backgroundColor: accentBg(mySide, 0.15) }]}>
-                  <Text style={[styles.tagText, { color: accent }]}>{w} +{wordScore(w)}</Text>
-                </View>
-              ))}
+              {(foundWords.length > 0 ? foundWords : game.wordsFound?.[myUid] ?? []).slice(0, 10).map((w: string) => {
+                const bonus = isBonusWord(w);
+                return (
+                  <View
+                    key={w}
+                    style={[
+                      styles.tag,
+                      { backgroundColor: accentBg(mySide, 0.15) },
+                      bonus && styles.tagBonus,
+                    ]}
+                  >
+                    <Text style={[styles.tagText, { color: accent }]}>
+                      {w} +{wordScore(w)}{bonus ? " ⚡" : ""}
+                    </Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
         </View>
@@ -592,5 +605,9 @@ const styles = StyleSheet.create({
   waitSub: { color: TEXT_SECONDARY, fontSize: 14, marginBottom: 14 },
   wordTags: { flexDirection: "row", flexWrap: "wrap", gap: 6, justifyContent: "center" },
   tag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  tagBonus: {
+    borderWidth: 1.5,
+    borderColor: "#FBBF24",  // amber — distinct from school colors
+  },
   tagText: { fontSize: 12, fontWeight: "600", textTransform: "uppercase" },
 });

@@ -50,7 +50,6 @@ interface UserProfile {
   photos: string[];
   major: string;
   gradYear: string;
-  bio: string;
 }
 
 export default function UserProfilePage() {
@@ -101,7 +100,6 @@ export default function UserProfilePage() {
           photos: data.photos || [],
           major: data.major || "",
           gradYear: data.gradYear || "",
-          bio: data.bio || "",
         });
 
         // Cache for use elsewhere
