@@ -1954,19 +1954,22 @@ const BANNED_WORDS = new Set([
   "HOOKUP", "HOOKUPS",
 ]);
 
-// Words that score 2× when found. Curated for rivalry theme + reliable
-// formation on common letter boards. School nicknames included
-// symmetrically (both rare formations); rivalry/competition words are
-// formable on most boards so the mechanic fires regularly.
+// Words that score 2× when found. Curated tightly — every entry is
+// either a school nickname, a literal CrossTown product term (DUEL is
+// the Duels tab), or vocabulary specifically used in rivalry context.
+// Generic competitive English (CROWN, GAME, SCORE, POINT, FIGHT, TEAM)
+// is intentionally excluded — too broad to feel like a rivalry signal.
 export const BONUS_WORDS = new Set([
-  // School identity (rare but possible — 5–6 letter formations)
+  // School identity (rare formations — 5–6 letters)
   "TROJAN", "TROJANS", "BRUIN", "BRUINS",
-  // Rivalry & competition (formable on most boards)
-  "BEAT", "BEATS", "WIN", "WINS", "DUEL", "DUELS",
-  "GAME", "GAMES", "SCORE", "SCORES",
-  "POINT", "POINTS", "FIGHT", "FIGHTS",
-  "TEAM", "TEAMS", "RIVAL", "RIVALS",
-  "BATTLE", "BATTLES", "CROWN", "CROWNS",
+  // The spine itself
+  "RIVAL", "RIVALS",
+  // Outcome verbs
+  "BEAT", "BEATS", "WIN", "WINS",
+  // CrossTown product vocabulary (DUEL = Duels tab)
+  "DUEL", "DUELS",
+  // Rivalry vocabulary
+  "BATTLE", "BATTLES",
 ]);
 
 const WORDS = new Set<string>();
